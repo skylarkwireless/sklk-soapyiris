@@ -23,9 +23,11 @@ struct VersionParser
         patch = matches[3];
         extra = matches[4];
         dirty = s.find("-dirty") != std::string::npos;
+        series = major + "." + minor;
     }
 
     std::string version, major, minor, patch, extra;
+    std::string series; //compatibility indicator
     bool dirty;
 };
 
@@ -45,11 +47,11 @@ SoapyIrisLocal::SoapyIrisLocal(const SoapySDR::Kwargs &args):
     auto fpgaVer = VersionParser(hwInfo["fpga"]);
 
     //check the driver version for series match, and dirty bit
-    if (driverVer.major != fwVer.major)
+    if (driverVer.series != fwVer.series)
     {
         SoapySDR::logf(SOAPY_SDR_ERROR,
             "Firmware version mismatch! Expected %s but found firmware with version %s",
-            driverVer.major.c_str(), fwVer.version.c_str());
+            driverVer.series.c_str(), fwVer.version.c_str());
     }
     else if (fwVer.dirty)
     {
@@ -58,11 +60,11 @@ SoapyIrisLocal::SoapyIrisLocal(const SoapySDR::Kwargs &args):
     }
 
     //check the fpga version for series match, and dirty bit
-    if (driverVer.major != fpgaVer.major)
+    if (driverVer.series != fpgaVer.series)
     {
         SoapySDR::logf(SOAPY_SDR_ERROR,
             "FPGA version mismatch! Expected %s but found FPGA with version %s",
-            driverVer.major.c_str(), fpgaVer.version.c_str());
+            driverVer.series.c_str(), fpgaVer.version.c_str());
     }
     else if (fpgaVer.dirty)
     {

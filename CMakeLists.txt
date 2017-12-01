@@ -4,16 +4,37 @@
 cmake_minimum_required(VERSION 2.8)
 project(SoapyIris CXX)
 
-set(BUILD_INFO "git") #TODO git hash, or release
-set(DRIVER_VERSION "2017.11.0.1-${BUILD_INFO}")
-add_definitions(-DDRIVER_VERSION=\"${DRIVER_VERSION}\")
-
 #select the release build type by default to get optimization flags
 if(NOT CMAKE_BUILD_TYPE)
    set(CMAKE_BUILD_TYPE "Release")
    message(STATUS "Build type not specified: defaulting to release.")
 endif(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
+
+########################################################################
+# gather version information
+# packagers may specify -DIRIS_EXTVER="foo" to replace the git hash
+########################################################################
+file(READ "${PROJECT_SOURCE_DIR}/Changelog.txt" changelog_txt)
+string(REGEX MATCH "Release ([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+) \\(" CHANGELOG_MATCH "${changelog_txt}")
+if(NOT CHANGELOG_MATCH)
+    message(FATAL_ERROR "Failed to extract version number from Changelog.txt")
+endif(NOT CHANGELOG_MATCH)
+set(IRIS_LIBVER "${CMAKE_MATCH_1}")
+
+if (NOT IRIS_EXTVER)
+    include(${PROJECT_SOURCE_DIR}/cmake/Modules/GetGitRevisionDescription.cmake)
+    get_git_head_revision(GITREFSPEC GITHASH)
+    if (GITHASH)
+        string(SUBSTRING "${GITHASH}" 0 8 GITHASH)
+        set(IRIS_EXTVER "${GITHASH}")
+    else (GITHASH)
+        set(IRIS_EXTVER "unknown")
+    endif (GITHASH)
+endif()
+
+set(DRIVER_VERSION "${IRIS_LIBVER}-${IRIS_EXTVER}")
+add_definitions(-DDRIVER_VERSION=\"${DRIVER_VERSION}\")
 
 ########################################################################
 # SoapySDR dependency
@@ -68,5 +89,6 @@ add_subdirectory(tests)
 ########################################################################
 # Build summary
 ########################################################################
+message(STATUS "${PROJECT_NAME} version: ${DRIVER_VERSION}")
 message(STATUS "Install prefix: ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Project version: ${DRIVER_VERSION}")

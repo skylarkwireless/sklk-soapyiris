@@ -13,19 +13,19 @@
 struct VersionParser
 {
     VersionParser(const std::string &s):
-        version(s)
+        version(s.empty()?"<unknown>":s)
     {
         std::smatch matches;
-        static const std::regex e("^(\\d+\\.\\d+)\\.(\\d+)\\.(\\d+)-(\\w+)(-dirty)?$");
+        static const std::regex e("^(\\d+\\.\\d+)\\.(\\d+)\\.(\\d+)-(.*)$");
         if (not std::regex_match(s, matches, e)) return;
         major = matches[1];
         minor = matches[2];
         patch = matches[3];
-        hash = matches[4];
-        dirty = matches[5].length() != 0;
+        extra = matches[4];
+        dirty = s.find("-dirty") != std::string::npos;
     }
 
-    std::string version, major, minor, patch, hash;
+    std::string version, major, minor, patch, extra;
     bool dirty;
 };
 
@@ -40,29 +40,29 @@ SoapyIrisLocal::SoapyIrisLocal(const SoapySDR::Kwargs &args):
     _dacClockRate(0.0)
 {
     auto hwInfo = this->getHardwareInfo();
-    auto expectedVer = VersionParser(DRIVER_VERSION);
-    auto driverVer = VersionParser(hwInfo["driverVer"]);
-    auto fpgaVer = VersionParser(hwInfo["fpgaVer"]);
+    auto driverVer = VersionParser(DRIVER_VERSION);
+    auto fwVer = VersionParser(hwInfo["firmware"]);
+    auto fpgaVer = VersionParser(hwInfo["fpga"]);
 
     //check the driver version for series match, and dirty bit
-    if (expectedVer.major != driverVer.major)
+    if (driverVer.major != fwVer.major)
     {
         SoapySDR::logf(SOAPY_SDR_ERROR,
-            "Driver version mismatch! Expected series %s but found driver with version %s",
-            expectedVer.major.c_str(), driverVer.version.c_str());
+            "Firmware version mismatch! Expected %s but found firmware with version %s",
+            driverVer.major.c_str(), fwVer.version.c_str());
     }
-    else if (driverVer.dirty)
+    else if (fwVer.dirty)
     {
         SoapySDR::logf(SOAPY_SDR_WARNING,
             "Development image: firmware has dirty bit set!");
     }
 
     //check the fpga version for series match, and dirty bit
-    if (expectedVer.major != fpgaVer.major)
+    if (driverVer.major != fpgaVer.major)
     {
         SoapySDR::logf(SOAPY_SDR_ERROR,
-            "FPGA version mismatch! Expected series %s but found FPGA with version %s",
-            expectedVer.major.c_str(), fpgaVer.version.c_str());
+            "FPGA version mismatch! Expected %s but found FPGA with version %s",
+            driverVer.major.c_str(), fpgaVer.version.c_str());
     }
     else if (fpgaVer.dirty)
     {
@@ -92,7 +92,9 @@ std::string SoapyIrisLocal::getHardwareKey(void) const
 
 SoapySDR::Kwargs SoapyIrisLocal::getHardwareInfo(void) const
 {
-    return _remote->getHardwareInfo();
+    auto info = _remote->getHardwareInfo();
+    info["driver"] = DRIVER_VERSION;
+    return info;
 }
 
 /*******************************************************************

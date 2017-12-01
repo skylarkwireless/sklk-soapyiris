@@ -1,0 +1,6 @@
+This this the changelog file for the SoapyIris project.
+
+Release 2017.11.0.1 (pending)
+==========================
+
+- Initial commit of SoapyIris project and repo creation

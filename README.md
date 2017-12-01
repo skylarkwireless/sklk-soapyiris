@@ -10,4 +10,6 @@
 
 ## Licensing information
 
-* See https://github.com/skylarkwireless/sklk-soapyiris/blob/master/LICENSE
+sklk-SoapyIris is available for use under the 3-clause (or "modified") BSD license:
+
+* See https://github.com/skylarkwireless/sklk-soapyiris/blob/master/BSD-3-CLAUSE-LICENSE.txt

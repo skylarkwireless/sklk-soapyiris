@@ -7,6 +7,7 @@
 
 #include "iris_device.hpp"
 #include <SoapySDR/Registry.hpp>
+#include <SoapySDR/Logger.hpp>
 
 static SoapySDR::Kwargs modifyArgs(SoapySDR::Kwargs args)
 {
@@ -17,12 +18,23 @@ static SoapySDR::Kwargs modifyArgs(SoapySDR::Kwargs args)
     return args;
 }
 
+static bool hasRemoteSupportInstalled(void)
+{
+    const auto factories = SoapySDR::Registry::listFindFunctions();
+    return factories.find("remote") != factories.end();
+}
+
 /***********************************************************************
  * Find available devices
  **********************************************************************/
 static std::vector<SoapySDR::Kwargs> findIrisLocal(const SoapySDR::Kwargs &hint)
 {
-    return SoapySDR::Device::enumerate(modifyArgs(hint));
+    auto result = SoapySDR::Device::enumerate(modifyArgs(hint));
+    if (result.empty() and hint.count("driver") and hint.at("driver") == "iris" and not hasRemoteSupportInstalled())
+    {
+        SoapySDR::log(SOAPY_SDR_ERROR, "Missing SoapyRemote support module required by SoapyIris!");
+    }
+    return result;
 }
 
 /***********************************************************************
@@ -30,7 +42,13 @@ static std::vector<SoapySDR::Kwargs> findIrisLocal(const SoapySDR::Kwargs &hint)
  **********************************************************************/
 static SoapySDR::Device *makeIrisLocal(const SoapySDR::Kwargs &args)
 {
-    if (args.count("remote") == 0) throw std::runtime_error("No Iris found on local network!");
+    if (args.count("remote") == 0)
+    {
+        if (not hasRemoteSupportInstalled())
+            throw std::runtime_error("Missing SoapyRemote support module required by SoapyIris!");
+        else
+            throw std::runtime_error("No Iris found on local network!");
+    }
     return new SoapyIrisLocal(modifyArgs(args));
 }
 

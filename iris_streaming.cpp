@@ -115,7 +115,28 @@ std::string SoapyIrisLocal::getNativeStreamFormat(const int /*direction*/, const
 
 SoapySDR::ArgInfoList SoapyIrisLocal::getStreamArgsInfo(const int direction, const size_t channel) const
 {
-    return _remote->getStreamArgsInfo(direction, channel);
+    SoapySDR::ArgInfoList infos;
+
+    {
+        SoapySDR::ArgInfo info;
+        info.key = "WIRE";
+        info.name = "Stream wire format";
+        info.type = SoapySDR::ArgInfo::STRING;
+        info.value = "";
+        info.description = "Specify a specific wire format for the stream.";
+        info.options = {SOAPY_SDR_CS16, SOAPY_SDR_CS12, SOAPY_SDR_CS8};
+        info.optionNames = {"Complex int16", "Complex int12", "Complex int8"};
+        infos.push_back(info);
+    }
+
+    //use remote infos that come from the driver itself
+    //and filter out remote: from soapy remote (not applicable)
+    for (const auto &info : _remote->getStreamArgsInfo(direction, channel))
+    {
+        if (info.key.find("remote:") == std::string::npos) infos.push_back(info);
+    }
+
+    return infos;
 }
 
 SoapySDR::Stream *SoapyIrisLocal::setupStream(

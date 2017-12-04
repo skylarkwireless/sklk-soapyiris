@@ -48,6 +48,7 @@ endif (WIN32)
 
 #create private include header for network compatibility
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+include_directories(${SoapySDR_INCLUDE_DIRS})
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/SoapySocketDefs.in.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/SoapySocketDefs.hpp)

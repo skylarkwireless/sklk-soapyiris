@@ -8,7 +8,6 @@
 #include <SoapySDR/Formats.hpp>
 #include <SoapySDR/Logger.hpp>
 #include "iris_device.hpp"
-#include "IfAddrsUtils.hpp"
 #include "SoapySocketDefs.hpp"
 #include <SoapyRPCSocket.hpp>
 #include <SoapyURLUtils.hpp>
@@ -31,6 +30,8 @@
 #define PADDED_ETH_HDR_SIZE 16 //14 bytes + 2 bytes padding (holds size in bytes)
 #define IPv6_UDP_SIZE (40 + 8) //40 bytes of IPv6 + 8 bytes of UDP header
 #define TWBW_HDR_SIZE (sizeof(uint64_t)*4) //4 transfers at 64-bits width
+
+void sockAddrInterfaceLookup(const sockaddr *sa, std::string &ethName, unsigned long long &mac64, int &scopeId);
 
 /*******************************************************************
  * Thread prio is a good idea with sockets
@@ -163,13 +164,13 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
 
     //ipv6 mac and scope for the remote socket
     std::string ethName;
-    long long localMac64(0);
+    unsigned long long localMac64(0);
     int localScopeId(-1);
     {
         SoapyRPCSocket junkSock; junkSock.connect(_remoteURL);
         SoapyURL url(junkSock.getsockname());
         SockAddrData addr; auto err = url.toSockAddr(addr);
-        sockAddrInterfaceLookup(addr, ethName, localMac64, localScopeId);
+        sockAddrInterfaceLookup(addr.addr(), ethName, localMac64, localScopeId);
         if (ethName.empty()) throw std::runtime_error("Iris::setupStream: Failed to determine ethernet device name for " + url.getNode());
         if (localMac64 == 0) throw std::runtime_error("Iris::setupStream: Failed to lookup network hardware address for " + ethName);
         if (localScopeId == -1) throw std::runtime_error("Iris::setupStream: Failed to discover the IPv6 scope ID\n"

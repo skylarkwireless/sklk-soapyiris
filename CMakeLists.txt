@@ -62,7 +62,7 @@ add_subdirectory(SoapyRemoteLibs)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/SoapyRemoteLibs)
 
 if (MSVC)
-    list(APPEND EXTRA_NET_SOURCES IfAddrsUtilsWindows.cpp)
+    list(APPEND EXTRA_NET_SOURCES GetAdaptersWindows.cpp)
 else()
     list(APPEND EXTRA_NET_SOURCES IfAddrsUtils.cpp)
 endif()

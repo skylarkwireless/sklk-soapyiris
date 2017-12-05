@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 //----------------------------------------------------------
-//-- additional socket utilities using ifaddrs
+//-- additional socket utilities using GetAdaptersAddresses
 //----------------------------------------------------------
 
-#include "IfAddrsUtils.hpp"
 #include "SoapySocketDefs.hpp"
 #include <iostream>
 #include <vector>
@@ -25,7 +24,7 @@
 #define MALLOC(x) HeapAlloc(GetProcessHeap(), 0, (x))
 #define FREE(x) HeapFree(GetProcessHeap(), 0, (x))
 
-void sockAddrInterfaceLookup(const SockAddrData &sa, std::string &ethName, long long &mac64, int &scopeId)
+void sockAddrInterfaceLookup(const sockaddr *sa, std::string &ethName, unsigned long long &mac64, int &scopeId)
 {
     std::map<std::string, std::vector<BYTE>> ethToMac;
     std::map<std::string, DWORD> ethToIpV6Index;
@@ -83,14 +82,14 @@ void sockAddrInterfaceLookup(const SockAddrData &sa, std::string &ethName, long 
             for (auto addr_i = pCurrAddresses->FirstUnicastAddress; addr_i != NULL; addr_i = addr_i->Next)
             {
                 const auto a = addr_i->Address.lpSockaddr;
-                const bool fa_match = (a->sa_family == sa.addr()->sa_family);
+                const bool fa_match = (a->sa_family == sa->sa_family);
 
                 if (fa_match and a->sa_family == AF_INET and
-                    reinterpret_cast<const struct sockaddr_in *>(sa.addr())->sin_addr.s_addr ==
+                    reinterpret_cast<const struct sockaddr_in *>(sa)->sin_addr.s_addr ==
                     reinterpret_cast<const struct sockaddr_in *>(a)->sin_addr.s_addr) ethName = pCurrAddresses->AdapterName;
 
                 if (fa_match and a->sa_family == AF_INET6 and std::memcmp(
-                    reinterpret_cast<const struct sockaddr_in6 *>(sa.addr())->sin6_addr.s6_addr,
+                    reinterpret_cast<const struct sockaddr_in6 *>(sa)->sin6_addr.s6_addr,
                     reinterpret_cast<const struct sockaddr_in6 *>(a)->sin6_addr.s6_addr,
                     sizeof(in6_addr)) ==0) ethName = pCurrAddresses->AdapterName;
 

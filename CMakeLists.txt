@@ -61,6 +61,12 @@ endif()
 add_subdirectory(SoapyRemoteLibs)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/SoapyRemoteLibs)
 
+if (MSVC)
+    list(APPEND EXTRA_NET_SOURCES IfAddrsUtilsWindows.cpp)
+else()
+    list(APPEND EXTRA_NET_SOURCES IfAddrsUtils.cpp)
+endif()
+
 ########################################################################
 # build the module
 ########################################################################
@@ -73,7 +79,7 @@ endif()
 SOAPY_SDR_MODULE_UTIL(
     TARGET IrisSupport
     SOURCES
-        IfAddrsUtils.cpp
+        ${EXTRA_NET_SOURCES}
         iris_registration.cpp
         iris_settings.cpp
         iris_streaming.cpp

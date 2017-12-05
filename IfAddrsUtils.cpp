@@ -12,68 +12,49 @@
 #include <linux/if_packet.h>
 #include <cstring>
 #include <iostream>
+#include <map>
 
-std::string sockAddrToEthName(const SockAddrData &sa)
+void sockAddrInterfaceLookup(const SockAddrData &sa, std::string &ethName, long long &mac64, int &scopeId)
 {
-    std::string name;
     struct ifaddrs *ifaddr;
-    if (getifaddrs(&ifaddr) == -1) return name;
+    if (getifaddrs(&ifaddr) == -1) return;
+
+    std::map<std::string, std::map<int, sockaddr *>> ethToFamilyToSa;
 
     for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
     {
         if (ifa->ifa_addr == NULL) continue;
-        if (ifa->ifa_addr->sa_family != sa.addr()->sa_family) continue;
+        const bool fa_match = (ifa->ifa_addr->sa_family == sa.addr()->sa_family);
 
-        if (ifa->ifa_addr->sa_family == AF_INET &&
+        if (fa_match and ifa->ifa_addr->sa_family == AF_INET and
             reinterpret_cast<const struct sockaddr_in *>(sa.addr())->sin_addr.s_addr ==
-            reinterpret_cast<const struct sockaddr_in *>(ifa->ifa_addr)->sin_addr.s_addr) name = ifa->ifa_name;
+            reinterpret_cast<const struct sockaddr_in *>(ifa->ifa_addr)->sin_addr.s_addr) ethName = ifa->ifa_name;
 
-        if (ifa->ifa_addr->sa_family == AF_INET6 && std::memcmp(
+        if (fa_match and ifa->ifa_addr->sa_family == AF_INET6 and std::memcmp(
             reinterpret_cast<const struct sockaddr_in6 *>(sa.addr())->sin6_addr.s6_addr,
             reinterpret_cast<const struct sockaddr_in6 *>(ifa->ifa_addr)->sin6_addr.s6_addr,
-            sizeof(in6_addr)) ==0) name = ifa->ifa_name;
+            sizeof(in6_addr)) ==0) ethName = ifa->ifa_name;
+
+        ethToFamilyToSa[ifa->ifa_name][ifa->ifa_addr->sa_family] = ifa->ifa_addr;
     }
 
-    freeifaddrs(ifaddr);
-    return name;
-}
-
-long long ethNameToHwAddr64(const std::string &name)
-{
-    uint64_t mac64(0);
-    struct ifaddrs *ifaddr;
-    if (getifaddrs(&ifaddr) == -1) return mac64;
-
-    for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
+    if (not ethName.empty())
     {
-        if (ifa->ifa_addr == NULL) continue;
-        if (ifa->ifa_addr->sa_family != AF_PACKET) continue;
-        if (ifa->ifa_name != name) continue;
-        struct sockaddr_ll *s = (struct sockaddr_ll*)ifa->ifa_addr;
-        for (int i = sizeof(s->sll_addr)-1; i >= 0; i--)
+        const auto &ethAddrs = ethToFamilyToSa.at(ethName);
+        const auto &macAddr = ethAddrs.find(AF_PACKET);
+        if (macAddr != ethAddrs.end())
         {
-            mac64 = (mac64 << 8) | s->sll_addr[i];
+            struct sockaddr_ll *s = (struct sockaddr_ll*)macAddr->second;
+            for (int i = sizeof(s->sll_addr)-1; i >= 0; i--)
+            {
+                mac64 = (mac64 << 8) | s->sll_addr[i];
+            }
+        }
+        const auto &ipV6Addr = ethAddrs.find(AF_INET6);
+        if (ipV6Addr != ethAddrs.end())
+        {
+            scopeId = reinterpret_cast<const struct sockaddr_in6 *>(ipV6Addr->second)->sin6_scope_id;
         }
     }
-
     freeifaddrs(ifaddr);
-    return mac64;
-}
-
-int ethNameToIpv6ScopeId(const std::string &name)
-{
-    int scopeId(-1);
-    struct ifaddrs *ifaddr;
-    if (getifaddrs(&ifaddr) == -1) return scopeId;
-
-    for (struct ifaddrs *ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next)
-    {
-        if (ifa->ifa_addr == NULL) continue;
-        if (ifa->ifa_addr->sa_family != AF_INET6) continue;
-        if (ifa->ifa_name != name) continue;
-        scopeId = reinterpret_cast<const struct sockaddr_in6 *>(ifa->ifa_addr)->sin6_scope_id;
-    }
-
-    freeifaddrs(ifaddr);
-    return scopeId;
 }

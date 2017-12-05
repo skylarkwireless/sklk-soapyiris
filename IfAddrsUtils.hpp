@@ -6,9 +6,6 @@
 //----------------------------------------------------------
 
 #include "SoapyURLUtils.hpp"
+#include <string>
 
-std::string sockAddrToEthName(const SockAddrData &sa);
-
-long long ethNameToHwAddr64(const std::string &name);
-
-int ethNameToIpv6ScopeId(const std::string &name);
+void sockAddrInterfaceLookup(const SockAddrData &sa, std::string &ethName, long long &mac64, int &scopeId);

@@ -161,19 +161,27 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     if (remoteIPv6Addr.empty()) throw std::runtime_error("Iris::setupStream: Failed to query Iris IPv6 address");
     if (remoteServPort.empty()) throw std::runtime_error("Iris::setupStream: Failed to query Iris UDP service port");
 
-    //get the scope id to get the remote ipv6 address with the local scope id
-    const auto percentPos = remoteIPv6Addr.find_last_of('%');
-    if (percentPos != std::string::npos)
+    //ipv6 mac and scope for the remote socket
+    std::string ethName;
+    long long localMac64(0);
+    int localScopeId(-1);
     {
         SoapyRPCSocket junkSock; junkSock.connect(_remoteURL);
         SoapyURL url(junkSock.getsockname());
         SockAddrData addr; auto err = url.toSockAddr(addr);
-        const auto ethName = sockAddrToEthName(addr);
-        const int scopeId = ethNameToIpv6ScopeId(ethName);
-        if (not err.empty() or scopeId == -1) throw std::runtime_error(
-            "Iris::setupStream: Failed to discover the IPv6 scope ID " + err + "\n" +
-            "  (Does interface='" + ethName + "' have an IPv6 address)?");
-        remoteIPv6Addr = remoteIPv6Addr.substr(0, percentPos+1) + std::to_string(scopeId);
+        sockAddrInterfaceLookup(addr, ethName, localMac64, localScopeId);
+        if (ethName.empty()) throw std::runtime_error("Iris::setupStream: Failed to determine ethernet device name for " + url.getNode());
+        if (localMac64 == 0) throw std::runtime_error("Iris::setupStream: Failed to lookup network hardware address for " + ethName);
+        if (localScopeId == -1) throw std::runtime_error("Iris::setupStream: Failed to discover the IPv6 scope ID\n"
+                                                         "  (Does interface='" + ethName + "' have an IPv6 address)?");
+        SoapySDR::logf(SOAPY_SDR_INFO, "Using local ethernet interface: %s", ethName.c_str());
+    }
+
+    //get the scope id to get the remote ipv6 address with the local scope id
+    const auto percentPos = remoteIPv6Addr.find_last_of('%');
+    if (percentPos != std::string::npos)
+    {
+        remoteIPv6Addr = remoteIPv6Addr.substr(0, percentPos+1) + std::to_string(localScopeId);
     }
 
     data->direction = direction;
@@ -208,11 +216,6 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
 
     //lookup the local mac address to program the framer
     SoapyURL localEp(data->sock.getsockname());
-    SockAddrData localAddr; localEp.toSockAddr(localAddr);
-    const auto ethname = sockAddrToEthName(localAddr);
-    if (ethname.empty()) throw std::runtime_error("Iris::setupStream: Failed to determine ethernet device name for " + localEp.getNode());
-    const long long localMac64 = ethNameToHwAddr64(ethname);
-    if (localMac64 == 0) throw std::runtime_error("Iris::setupStream: Failed to lookup network hardware address for " + ethname);
 
     //pass arguments within the args to program the framer
     SoapySDR::Kwargs args(_args);
@@ -496,7 +499,6 @@ int SoapyIrisLocal::acquireReadBuffer(
 
     int ret = data->sock.recv(data->buff, sizeof(data->buff));
     if (ret < 0) return SOAPY_SDR_STREAM_ERROR;
-    //std::cout << "sock recv " << ret << std::endl;
 
     size_t numSamps;
     bool overflow;

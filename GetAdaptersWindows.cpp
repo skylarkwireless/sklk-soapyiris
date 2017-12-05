@@ -6,6 +6,7 @@
 //----------------------------------------------------------
 
 #include "SoapySocketDefs.hpp"
+#include <ciso646>
 #include <iostream>
 #include <vector>
 #include <map>

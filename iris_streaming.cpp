@@ -23,6 +23,8 @@
 #include <future>
 #include <condition_variable>
 
+#define MAX_TX_STATUS_DEPTH 64
+
 #define RX_SOCKET_BUFFER_BYTES 50*1024*1024 //arbitrary and large PC buffer size
 
 #define ETHERNET_MTU 1500 //L2 MTU without the 14-byte eth header
@@ -438,6 +440,8 @@ void IrisLocalStream::statusLoop(void)
             if (timeError) std::cerr << "T" << std::flush;
             if (seqError) std::cerr << "S" << std::flush;
             std::lock_guard<std::mutex> lock(this->mutex);
+            //constrain max queue size (if user isnt reading stream status)
+            if (this->queue.size() > MAX_TX_STATUS_DEPTH) this->queue.pop();
             this->queue.push(entry);
         }
 

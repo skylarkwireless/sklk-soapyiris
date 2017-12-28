@@ -63,12 +63,8 @@ class TestDataFormats(unittest.TestCase):
         #transmit and receive at this time in the future
         flags = SOAPY_SDR_WAIT_TRIGGER | SOAPY_SDR_END_BURST
         self.sdr.activateStream(txStream)
-        numSent = 0
-        while numSent < numSamps:
-            sr = self.sdr.writeStream(txStream, [waveTxA[numSent:], waveTxB[numSent:]], numSamps-numSent, flags)
-            print("sr=%s, numSent=%s"%(sr, numSent))
-            self.assertGreater(sr.ret, 0)
-            numSent += sr.ret
+        sr = self.sdr.writeStream(txStream, [waveTxA, waveTxB], numSamps, flags)
+        self.assertEqual(sr.ret, numSamps)
         print(waveTxA[:20])
         print(waveTxA[-20:])
 
@@ -79,12 +75,8 @@ class TestDataFormats(unittest.TestCase):
         time.sleep(0.1)
         self.sdr.writeSetting("TRIGGER_GEN", "")
 
-        numRecv = 0
-        while numRecv < numSamps:
-            sr = self.sdr.readStream(rxStream, [waveRxA[numRecv:], waveRxB[numRecv:]], numSamps-numRecv, timeoutUs=int(1e6))
-            print("sr=%s, numRecv=%s"%(sr, numRecv))
-            self.assertGreater(sr.ret, 0)
-            numRecv += sr.ret
+        sr = self.sdr.readStream(rxStream, [waveRxA, waveRxB], numSamps, timeoutUs=int(1e6))
+        self.assertEqual(sr.ret, numSamps)
 
         print(waveRxA[:20])
         print(waveRxA[-20:])
@@ -142,12 +134,8 @@ class TestDataFormats(unittest.TestCase):
         #transmit and receive at this time in the future
         flags = SOAPY_SDR_WAIT_TRIGGER | SOAPY_SDR_END_BURST
         self.sdr.activateStream(txStream)
-        numSent = 0
-        while numSent < numSamps:
-            sr = self.sdr.writeStream(txStream, [waveTxA[numSent*txSize:], waveTxB[numSent*txSize:]], numSamps-numSent, flags)
-            print("sr=%s, numSent=%s"%(sr, numSent))
-            self.assertGreater(sr.ret, 0)
-            numSent += sr.ret
+        sr = self.sdr.writeStream(txStream, [waveTxA, waveTxB], numSamps, flags)
+        self.assertEqual(sr.ret, numSamps)
 
         #receive a waveform at the same time
         self.sdr.activateStream(rxStream, flags, 0, numSamps)
@@ -156,12 +144,8 @@ class TestDataFormats(unittest.TestCase):
         time.sleep(0.1)
         self.sdr.writeSetting("TRIGGER_GEN", "")
 
-        numRecv = 0
-        while numRecv < numSamps:
-            sr = self.sdr.readStream(rxStream, [waveRxA[numRecv*rxSize:], waveRxB[numRecv*rxSize:]], numSamps-numRecv, timeoutUs=int(1e6))
-            print("sr=%s, numRecv=%s"%(sr, numRecv))
-            self.assertGreater(sr.ret, 0)
-            numRecv += sr.ret
+        sr = self.sdr.readStream(rxStream, [waveRxA, waveRxB], numSamps, timeoutUs=int(1e6))
+        self.assertEqual(sr.ret, numSamps)
 
         #look at any async messages
         sr = self.sdr.readStreamStatus(txStream, timeoutUs=int(1e6))

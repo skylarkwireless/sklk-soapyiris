@@ -72,6 +72,7 @@ struct IrisLocalStream
 
     size_t bytesPerElement;
     size_t numHostChannels;
+    size_t hostFormatSize;
     size_t mtuElements;
 
     //read channel partial
@@ -198,6 +199,7 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     const size_t mtuPayloadBytes = ETHERNET_MTU - IPv6_UDP_SIZE - TWBW_HDR_SIZE;
     data->mtuElements = mtuPayloadBytes/data->bytesPerElement;
     data->numHostChannels = channels.size();
+    data->hostFormatSize = SoapySDR::formatToSize(format);
     data->nextSeqSend = 0;
     data->lastSeqRecv = 0;
     const auto txFifoDepthBytes = rfTxFifoDepth*16;
@@ -311,43 +313,65 @@ int SoapyIrisLocal::readStream(
 {
     auto data = (IrisLocalStream *)stream;
 
-    //direct buffer call, there is no remainder left
-    if (data->readElemsLeft == 0)
+    const bool onePkt = (flags & SOAPY_SDR_ONE_PACKET) != 0;
+    flags = 0; //clear
+
+    size_t numRecv = 0;
+    do
     {
-        const void *buff[1];
-        int ret = this->acquireReadBuffer(stream, data->readHandle, buff, flags, timeNs, timeoutUs);
-        if (ret < 0) return ret;
-        data->readOffset = size_t(buff[0]);
-        data->readElemsLeft = size_t(ret);
-    }
+        int flags_i(0);
+        long long timeNs_i(0);
 
-    //always put the time in from the internally tracked tick rate
-    //we do this for both new buffer handles which have good ticks
-    //and for remainder buffers which get the tick interpolation
-    flags |= SOAPY_SDR_HAS_TIME;
-    timeNs = this->ticksToTimeNs(data->tickCount, _adcClockRate);
+        //direct buffer call, there is no remainder left
+        if (data->readElemsLeft == 0)
+        {
+            const void *buff[1];
+            int ret = this->acquireReadBuffer(stream, data->readHandle, buff, flags_i, timeNs_i, timeoutUs);
+            //timeout after some successful sends, leave loop
+            if (ret == SOAPY_SDR_TIMEOUT and numRecv != 0) break;
+            if (ret < 0) return ret;
+            data->readOffset = size_t(buff[0]);
+            data->readElemsLeft = size_t(ret);
+        }
 
-    //convert the buffer
-    size_t numSamples = std::min(numElems, data->readElemsLeft);
-    convertToHost(data->format, (const void *)data->readOffset, buffs, numSamples);
+        //always put the time in from the internally tracked tick rate
+        //we do this for both new buffer handles which have good ticks
+        //and for remainder buffers which get the tick interpolation
+        flags_i |= SOAPY_SDR_HAS_TIME;
+        timeNs_i = this->ticksToTimeNs(data->tickCount, _adcClockRate);
 
-    //next internal tick count
-    data->tickCount += 2*numSamples;
+        //convert the buffer
+        void *buffsOffset[2];
+        const size_t bytesOffset = numRecv*data->hostFormatSize;
+        for (size_t i = 0; i < data->numHostChannels; i++) buffsOffset[i] = reinterpret_cast<void *>(size_t(buffs[i]) + bytesOffset);
+        size_t numSamples = std::min(numElems, data->readElemsLeft);
+        convertToHost(data->format, (const void *)data->readOffset, buffsOffset, numSamples);
 
-    //used entire buffer, release
-    if ((data->readElemsLeft -= numSamples) == 0)
-    {
-        this->releaseReadBuffer(stream, data->readHandle);
-    }
+        //next internal tick count
+        data->tickCount += 2*numSamples;
 
-    //increment pointers for next
-    else
-    {
-        flags |= SOAPY_SDR_MORE_FRAGMENTS;
-        data->readOffset += numSamples*data->bytesPerElement;
-    }
+        //used entire buffer, release
+        if ((data->readElemsLeft -= numSamples) == 0)
+        {
+            this->releaseReadBuffer(stream, data->readHandle);
+        }
 
-    return numSamples;
+        //increment pointers for next
+        else
+        {
+            data->readOffset += numSamples*data->bytesPerElement;
+        }
+
+        flags |= flags_i; //total set of any burst or time flags
+        if (numRecv == 0) timeNs = timeNs_i; //save first time
+
+        numRecv += numSamples;
+    } while (numRecv != numElems and not onePkt);
+
+    //ended with fragments?
+    if (data->readElemsLeft != 0) flags |= SOAPY_SDR_MORE_FRAGMENTS;
+
+    return numRecv;
 }
 
 int SoapyIrisLocal::writeStream(
@@ -360,25 +384,41 @@ int SoapyIrisLocal::writeStream(
 {
     auto data = (IrisLocalStream *)stream;
 
-    //acquire a new handle
-    size_t handle;
-    void *buff[1];
-    int ret = this->acquireWriteBuffer(stream, handle, buff, timeoutUs);
+    const bool onePkt = (flags & SOAPY_SDR_ONE_PACKET) != 0;
 
-    //return error if present
-    if (ret < 0) return ret;
+    size_t numSent = 0;
+    do
+    {
+        //acquire a new handle
+        size_t handle;
+        void *buff[1];
+        int ret = this->acquireWriteBuffer(stream, handle, buff, timeoutUs);
 
-    //only end burst if the last sample can be released
-    size_t numSamples = std::min<size_t>(ret, numElems);
-    if (numSamples < numElems) flags &= ~(SOAPY_SDR_END_BURST);
+        //timeout after some successful sends, leave loop
+        if (ret == SOAPY_SDR_TIMEOUT and numSent != 0) break;
 
-    //convert the samples
-    convertToWire(data->format, buffs, buff[0], numSamples);
+        //return error if present
+        if (ret < 0) return ret;
 
-    //release the buffer to send the samples
-    this->releaseWriteBuffer(stream, handle, numSamples, flags, timeNs);
+        //only end burst if the last sample can be released
+        const size_t numLeft = numElems-numSent;
+        const size_t numSamples = std::min<size_t>(ret, numLeft);
+        int flags_i = (numSent+numSamples == numElems)?flags:(flags & ~(SOAPY_SDR_END_BURST));
 
-    return numSamples;
+        //convert the samples
+        const void *buffsOffset[2];
+        const size_t bytesOffset = numSent*data->hostFormatSize;
+        for (size_t i = 0; i < data->numHostChannels; i++) buffsOffset[i] = reinterpret_cast<const void *>(size_t(buffs[i]) + bytesOffset);
+        convertToWire(data->format, buffsOffset, buff[0], numSamples);
+
+        //release the buffer to send the samples
+        this->releaseWriteBuffer(stream, handle, numSamples, flags_i, timeNs);
+        flags &= ~(SOAPY_SDR_HAS_TIME); //only valid on the first release
+        numSent += numSamples;
+
+    } while (numSent != numElems and not onePkt);
+
+    return numSent;
 }
 
 void IrisLocalStream::statusLoop(void)

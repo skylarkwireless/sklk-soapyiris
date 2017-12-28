@@ -50,7 +50,7 @@ int main(int argc, char **argv)
     }
 
     //use the RX only antenna, and TRX for tx
-    for (auto ch : channels) device->setAntenna(SOAPY_SDR_RX, ch, "RX");
+    //for (auto ch : channels) device->setAntenna(SOAPY_SDR_RX, ch, "RX");
 
     std::cout << "setting samples rates to " << rate/1e6 << " Msps..." << std::endl;
     for (auto ch : channels)
@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 
     device->setHardwareTime(0); //clear HW time for easy debugging
 
-    const long long txTimeDelta = 4*1e6; //4 milliseconds (in units of nanoseconds)
+    const long long txTimeDelta = 1.5*1e6; //4 milliseconds (in units of nanoseconds)
     std::cout << "Tx time delta " << SoapySDR::timeNsToTicks(txTimeDelta, rate) << " ticks" << std::endl;
 
     device->activateStream(rxStream);
@@ -189,6 +189,17 @@ int main(int argc, char **argv)
     if (totalTxSamples != 0) std::cout << "totalTxSamples\t" << totalTxSamples << std::endl;
     if (numIterations != 0) std::cout << "numIterations\t" << numIterations << std::endl;
     std::cout << std::endl;
+
+    std::cout << "num late " << device->readRegister("RFCORE", 128)<< std::endl;
+    std::cout << "num dropped " << device->readRegister("RFCORE", 132)<< std::endl;
+    std::cout << "num truncated " << device->readRegister("RFCORE", 136)<< std::endl;
+
+    uint64_t last_time_lo = device->readRegister("RFCORE", 140);
+    uint64_t last_time_hi = device->readRegister("RFCORE", 144);
+    uint64_t sys_time_lo = device->readRegister("RFCORE", 148);
+    uint64_t sys_time_hi = device->readRegister("RFCORE", 152);
+    std::cout << "last time pkt " << (last_time_lo | (last_time_hi << 32))<< std::endl;
+    std::cout << "SYS time observed " << (sys_time_lo | (sys_time_hi << 32))<< std::endl;
 
     std::cout << "cleanup..." << std::endl;
     device->closeStream(rxStream);

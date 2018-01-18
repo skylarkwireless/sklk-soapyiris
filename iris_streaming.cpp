@@ -314,6 +314,7 @@ int SoapyIrisLocal::readStream(
     auto data = (IrisLocalStream *)stream;
 
     const bool onePkt = (flags & SOAPY_SDR_ONE_PACKET) != 0;
+    bool eop = false;
     flags = 0; //clear
 
     size_t numRecv = 0;
@@ -362,11 +363,12 @@ int SoapyIrisLocal::readStream(
             data->readOffset += numSamples*data->bytesPerElement;
         }
 
+        eop = onePkt or (flags_i & (SOAPY_SDR_END_BURST | SOAPY_SDR_ONE_PACKET)) != 0;
         flags |= flags_i; //total set of any burst or time flags
         if (numRecv == 0) timeNs = timeNs_i; //save first time
 
         numRecv += numSamples;
-    } while (numRecv != numElems and not onePkt);
+    } while (numRecv != numElems and not eop);
 
     //ended with fragments?
     if (data->readElemsLeft != 0) flags |= SOAPY_SDR_MORE_FRAGMENTS;

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Skylark Wireless LLC
+// Copyright (c) 2017-2018 Skylark Wireless LLC
 // SPDX-License-Identifier: BSD-3-Clause
 
 //-------------------------------------------------------------
@@ -17,13 +17,20 @@ struct VersionParser
     {
         std::smatch matches;
         static const std::regex e("^(\\d+\\.\\d+)\\.(\\d+)\\.(\\d+)-(.*)$");
-        if (not std::regex_match(s, matches, e)) return;
-        major = matches[1];
-        minor = matches[2];
-        patch = matches[3];
-        extra = matches[4];
-        dirty = s.find("-dirty") != std::string::npos;
-        series = major + "." + minor;
+        try
+        {
+            if (not std::regex_match(s, matches, e)) return;
+            major = matches[1];
+            minor = matches[2];
+            patch = matches[3];
+            extra = matches[4];
+            dirty = s.find("-dirty") != std::string::npos;
+            series = major + "." + minor;
+        }
+        catch(...)
+        {
+            SoapySDR::logf(SOAPY_SDR_WARNING, "VersionParser failed to parse: %s", s.c_str());
+        }
     }
 
     std::string version, major, minor, patch, extra;

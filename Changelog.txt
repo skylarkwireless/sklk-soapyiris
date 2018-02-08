@@ -1,5 +1,10 @@
 This this the changelog file for the SoapyIris project.
 
+Release 2018.02.0.1 (pending)
+==========================
+
+- Version update to match firmware from February 2018
+
 Release 2018.01.0.1 (pending)
 ==========================
 

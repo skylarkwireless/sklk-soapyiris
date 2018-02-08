@@ -9,12 +9,13 @@
 #include <SoapySDR/Registry.hpp>
 #include <SoapySDR/Logger.hpp>
 
-static SoapySDR::Kwargs modifyArgs(SoapySDR::Kwargs args)
+static SoapySDR::Kwargs modifyArgs(SoapySDR::Kwargs args, const long timeoutUs = -1)
 {
     //using soapyremote for settings, set typical driver filters for iris here
     args["show"] = "1"; //needed to enable discovery on iris-arm remote module
     args["driver"] = "remote";
     args["remote:driver"] = "iris-arm";
+    if (timeoutUs != -1) args["remote:timeout"] = std::to_string(timeoutUs);
     return args;
 }
 

@@ -15,6 +15,10 @@ struct VersionParser
     VersionParser(const std::string &s):
         version(s.empty()?"<unknown>":s)
     {
+        //regex is broken in gcc < 4.9, ignore the version parsing
+        #if defined(__GNUC__) && __GNUC__ <= 4 && __GNUC_MINOR__ < 9
+        return;
+        #endif
         std::smatch matches;
         static const std::regex e("^(\\d+\\.\\d+)\\.(\\d+)\\.(\\d+)-(.*)$");
         try

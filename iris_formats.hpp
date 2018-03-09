@@ -19,6 +19,7 @@ enum StreamFormat
     SF_CS16_x2_WIRE48,
     SF_CF32_x2_WIRE48,
     SF_CS16_x2_WIRE64,
+    SF_CF32_x2_WIRE64,
 };
 
 void resolveFormats(

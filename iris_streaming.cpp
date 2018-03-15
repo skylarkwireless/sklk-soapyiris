@@ -133,6 +133,16 @@ SoapySDR::ArgInfoList SoapyIrisLocal::getStreamArgsInfo(const int direction, con
         infos.push_back(info);
     }
 
+    {
+        SoapySDR::ArgInfo info;
+        info.key = "MTU";
+        info.name = "Ethernet MTU in bytes";
+        info.type = SoapySDR::ArgInfo::INT;
+        info.value = std::to_string(ETHERNET_MTU);
+        info.description = "Configure a larger MTU for jumbo packets.";
+        infos.push_back(info);
+    }
+
     //use remote infos that come from the driver itself
     //and filter out remote: from soapy remote (not applicable)
     for (const auto &info : _remote->getStreamArgsInfo(direction, channel))
@@ -196,7 +206,8 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     data->inBurst = false;
     data->burstUsesTime = false;
     data->packetCount = 0;
-    const size_t mtuPayloadBytes = ETHERNET_MTU - IPv6_UDP_SIZE - TWBW_HDR_SIZE;
+    const size_t mtu = _args.count("MTU")?std::stoul(_args.at("MTU")):ETHERNET_MTU;
+    const size_t mtuPayloadBytes = mtu - IPv6_UDP_SIZE - TWBW_HDR_SIZE;
     data->mtuElements = mtuPayloadBytes/data->bytesPerElement;
     data->numHostChannels = channels.size();
     data->hostFormatSize = SoapySDR::formatToSize(format);

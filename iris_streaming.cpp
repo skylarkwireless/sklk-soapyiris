@@ -240,7 +240,18 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     args["iris:udp_dst"] = localEp.getService();
     args["iris:mtu"] = std::to_string(data->mtuElements);
 
-    data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
+    //try to setup the stream, bypassing the software streams for hardware acceleration
+    args["remote:prot"] = "none";
+    try
+    {
+        data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
+    }
+    //not working? fall back to old-type setup without the stream bypass support
+    catch(...)
+    {
+        args.erase("remote:prot");
+        data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
+    }
 
     //if the rx stream was left running, stop it and drain the fifo
     if (direction == SOAPY_SDR_RX)

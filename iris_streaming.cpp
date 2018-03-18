@@ -240,10 +240,19 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     args["iris:udp_dst"] = localEp.getService();
     args["iris:mtu"] = std::to_string(data->mtuElements);
 
-    //try to setup the stream, bypassing the software streams for hardware acceleration
-    args["remote:prot"] = "none";
-    try
+    //is the bypass mode supported for hardware acceleration?
+    bool tryBypassMode(false);
+    for (const auto &streamArg : _remote->getStreamArgsInfo(direction, channels.front()))
     {
+        if (streamArg.key != "remote:prot") continue;
+        auto it = streamArg.options.find("none");
+        tryBypassMode = it != streamArg.options.end();
+    }
+
+    //try to setup the stream, bypassing the software streams for hardware acceleration
+    if (tryBypassMode) try
+    {
+        args["remote:prot"] = "none";
         data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
     }
     //not working? fall back to old-type setup without the stream bypass support

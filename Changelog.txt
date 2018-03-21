@@ -1,9 +1,13 @@
 This this the changelog file for the SoapyIris project.
 
-Release 2018.02.0.1 (pending)
+Release 2018.03.0.1 (2018-03-21)
 ==========================
 
 - configurable ethernet mtu for stream args (MTU key)
+
+Release 2018.02.0.1 (pending)
+==========================
+
 - regex is broken in gcc < 4.9, ignore the version parsing
 - Version update to match firmware from February 2018
 

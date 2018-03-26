@@ -21,6 +21,7 @@
 #include <mutex>
 #include <queue>
 #include <future>
+#include <algorithm> //find
 #include <condition_variable>
 
 #define MAX_TX_STATUS_DEPTH 64
@@ -240,7 +241,32 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     args["iris:udp_dst"] = localEp.getService();
     args["iris:mtu"] = std::to_string(data->mtuElements);
 
-    data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
+    //is the bypass mode supported for hardware acceleration?
+    bool tryBypassMode(false);
+    for (const auto &streamArg : _remote->getStreamArgsInfo(direction, channels.front()))
+    {
+        if (streamArg.key != "remote:prot") continue;
+        auto it = std::find(streamArg.options.begin(), streamArg.options.end(), "none");
+        tryBypassMode = it != streamArg.options.end();
+    }
+
+    //and is it also available on the server?
+    //just check for the existence of remote:version
+    //since older versions did not have support
+    if (_remote->getHardwareInfo().count("remote:version") == 0) tryBypassMode = false;
+
+    //try to setup the stream, bypassing the software streams for hardware acceleration
+    if (tryBypassMode) try
+    {
+        args["remote:prot"] = "none";
+        data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
+    }
+    //not working? fall back to old-type setup without the stream bypass support
+    catch(...)
+    {
+        args.erase("remote:prot");
+        data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
+    }
 
     //if the rx stream was left running, stop it and drain the fifo
     if (direction == SOAPY_SDR_RX)

@@ -21,6 +21,7 @@
 #include <mutex>
 #include <queue>
 #include <future>
+#include <algorithm> //find
 #include <condition_variable>
 
 #define MAX_TX_STATUS_DEPTH 64
@@ -245,9 +246,14 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     for (const auto &streamArg : _remote->getStreamArgsInfo(direction, channels.front()))
     {
         if (streamArg.key != "remote:prot") continue;
-        auto it = streamArg.options.find("none");
+        auto it = std::find(streamArg.options.begin(), streamArg.options.end(), "none");
         tryBypassMode = it != streamArg.options.end();
     }
+
+    //and is it also available on the server?
+    //just check for the existence of remote:version
+    //since older versions did not have support
+    if (_remote->getHardwareInfo().count("remote:version") == 0) tryBypassMode = false;
 
     //try to setup the stream, bypassing the software streams for hardware acceleration
     if (tryBypassMode) try

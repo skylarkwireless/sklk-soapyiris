@@ -383,7 +383,7 @@ int SoapyIrisLocal::readStream(
         void *buffsOffset[2];
         const size_t bytesOffset = numRecv*data->hostFormatSize;
         for (size_t i = 0; i < data->numHostChannels; i++) buffsOffset[i] = reinterpret_cast<void *>(size_t(buffs[i]) + bytesOffset);
-        size_t numSamples = std::min(numElems, data->readElemsLeft);
+        size_t numSamples = std::min(numElems-numRecv, data->readElemsLeft);
         convertToHost(data->format, (const void *)data->readOffset, buffsOffset, numSamples);
 
         //next internal tick count

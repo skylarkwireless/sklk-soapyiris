@@ -5,6 +5,12 @@ Release 2018.03.1.1 (pending)
 
 - attempt to use soapyremote 0.7 feature stream bypass
 
+Release 2018.03.0.2 (pending)
+==========================
+
+- fixed multi-buffer readStream accounting
+- use multi-buffer reads/writes in example
+
 Release 2018.03.0.1 (2018-03-21)
 ==========================
 

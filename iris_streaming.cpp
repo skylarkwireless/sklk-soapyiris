@@ -261,8 +261,9 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
         args["remote:prot"] = "none";
         data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);
     }
+    catch(...){tryBypassMode = false;}
     //not working? fall back to old-type setup without the stream bypass support
-    catch(...)
+    if (not tryBypassMode)
     {
         args.erase("remote:prot");
         data->remoteStream = _remote->setupStream(direction, remoteFormat, channels, args);

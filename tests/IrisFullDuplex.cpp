@@ -96,53 +96,53 @@ int main(int argc, char **argv)
         int flags(0);
         long long timeNs(0);
         long long txTimeNs(0);
-        size_t samps_left(NUM_SAMPS);
-        while (samps_left != 0)
+        buffs[0] = buff.data() + (NUM_SAMPS);
+        buffs[1] = buff.data() + (NUM_SAMPS);
+        int r = device->readStream(rxStream, buffs.data(), NUM_SAMPS, flags, timeNs);
+        if (r == SOAPY_SDR_OVERFLOW or (r > 0 and (flags & SOAPY_SDR_END_ABRUPT) != 0))
         {
-            buffs[0] = buff.data() + (NUM_SAMPS-samps_left);
-            buffs[1] = buff.data() + (NUM_SAMPS-samps_left);
-            int r = device->readStream(rxStream, buffs.data(), samps_left, flags, timeNs);
-            if (r == SOAPY_SDR_OVERFLOW or (r > 0 and (flags & SOAPY_SDR_END_ABRUPT) != 0))
-            {
-                numOverflows++;
-                samps_left = NUM_SAMPS; //start this over
-            }
-            else if (r < 0)
-            {
-                std::cerr << "unexpected readStream error " << SoapySDR::errToStr(r) << std::endl;
-                goto cleanup;
-            }
-            else
-            {
-                if (samps_left == NUM_SAMPS) txTimeNs = timeNs + txTimeDelta; //first time used for tx
-                samps_left -= r;
-                totalRxSamples += r;
-            }
+            numOverflows++;
+            continue; //start this over
+        }
+        else if (r < 0)
+        {
+            std::cerr << "unexpected readStream error " << SoapySDR::errToStr(r) << std::endl;
+            goto cleanup;
+        }
+        else if (size_t(r) != NUM_SAMPS)
+        {
+            std::cerr << "unexpected readStream return r != NUM_SAMPS" << r << std::endl;
+            goto cleanup;
+        }
+        else
+        {
+            txTimeNs = timeNs + txTimeDelta; //first time used for tx
+            totalRxSamples += r;
         }
 
         ///////////////////////////////////////////////////////////
         // transmit loop
         ///////////////////////////////////////////////////////////
         //std::cout << "tx at " << SoapySDR::timeNsToTicks(txTimeNs, rate) << std::endl;
-        samps_left = NUM_SAMPS;
         flags = SOAPY_SDR_HAS_TIME;
-        while (samps_left != 0)
+        if (exitLoop) flags |= SOAPY_SDR_END_BURST; //end burst on last iter
+        buffs[0] = buff.data() + (NUM_SAMPS);
+        buffs[1] = buff.data() + (NUM_SAMPS);
+        r = device->writeStream(txStream, buffs.data(), NUM_SAMPS, flags, txTimeNs);
+        if (r < 0)
         {
-            if (exitLoop) flags |= SOAPY_SDR_END_BURST; //end burst on last iter
-            buffs[0] = buff.data() + (NUM_SAMPS-samps_left);
-            buffs[1] = buff.data() + (NUM_SAMPS-samps_left);
-            int r = device->writeStream(txStream, buffs.data(), samps_left, flags, txTimeNs);
-            if (r < 0)
-            {
-                std::cerr << "unexpected writeStream error " << SoapySDR::errToStr(r) << std::endl;
-                goto cleanup;
-            }
-            else
-            {
-                flags = 0;
-                samps_left -= r;
-                totalTxSamples += r;
-            }
+            std::cerr << "unexpected writeStream error " << SoapySDR::errToStr(r) << std::endl;
+            goto cleanup;
+        }
+        else if (size_t(r) != NUM_SAMPS)
+        {
+            std::cerr << "unexpected writeStream return r != NUM_SAMPS" << r << std::endl;
+            goto cleanup;
+        }
+        else
+        {
+            flags = 0;
+            totalTxSamples += r;
         }
 
         ///////////////////////////////////////////////////////////

@@ -96,8 +96,8 @@ int main(int argc, char **argv)
         int flags(0);
         long long timeNs(0);
         long long txTimeNs(0);
-        buffs[0] = buff.data() + (NUM_SAMPS);
-        buffs[1] = buff.data() + (NUM_SAMPS);
+        buffs[0] = buff.data();
+        buffs[1] = buff.data();
         int r = device->readStream(rxStream, buffs.data(), NUM_SAMPS, flags, timeNs);
         if (r == SOAPY_SDR_OVERFLOW or (r > 0 and (flags & SOAPY_SDR_END_ABRUPT) != 0))
         {
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
         }
         else if (size_t(r) != NUM_SAMPS)
         {
-            std::cerr << "unexpected readStream return r != NUM_SAMPS" << r << std::endl;
+            std::cerr << "unexpected readStream return r != NUM_SAMPS " << r << std::endl;
             goto cleanup;
         }
         else
@@ -126,8 +126,8 @@ int main(int argc, char **argv)
         //std::cout << "tx at " << SoapySDR::timeNsToTicks(txTimeNs, rate) << std::endl;
         flags = SOAPY_SDR_HAS_TIME;
         if (exitLoop) flags |= SOAPY_SDR_END_BURST; //end burst on last iter
-        buffs[0] = buff.data() + (NUM_SAMPS);
-        buffs[1] = buff.data() + (NUM_SAMPS);
+        buffs[0] = buff.data();
+        buffs[1] = buff.data();
         r = device->writeStream(txStream, buffs.data(), NUM_SAMPS, flags, txTimeNs);
         if (r < 0)
         {
@@ -136,7 +136,7 @@ int main(int argc, char **argv)
         }
         else if (size_t(r) != NUM_SAMPS)
         {
-            std::cerr << "unexpected writeStream return r != NUM_SAMPS" << r << std::endl;
+            std::cerr << "unexpected writeStream return r != NUM_SAMPS " << r << std::endl;
             goto cleanup;
         }
         else

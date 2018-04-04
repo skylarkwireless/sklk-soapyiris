@@ -82,13 +82,14 @@ int main(int argc, char **argv)
     long long numIterations(0);
 
     std::vector<std::complex<int16_t>> buff(NUM_SAMPS);
+    std::vector<std::complex<int16_t>> buff2(NUM_SAMPS);
     std::vector<void *> buffs(2);
     std::cout << "Press Ctrl+C to end loop" << std::flush;
     signal(SIGINT, sigIntHandler);
     bool exitLoop = false;
     while (not exitLoop)
     {
-        exitLoop = loopDone;
+        exitLoop = true;
 
         ///////////////////////////////////////////////////////////
         // receiver loop
@@ -125,9 +126,16 @@ int main(int argc, char **argv)
         ///////////////////////////////////////////////////////////
         //std::cout << "tx at " << SoapySDR::timeNsToTicks(txTimeNs, rate) << std::endl;
         flags = SOAPY_SDR_HAS_TIME;
-        if (exitLoop) flags |= SOAPY_SDR_END_BURST; //end burst on last iter
+        if (exitLoop) flags |= SOAPY_SDR_END_BURST; //end burst on last 
+        unsigned cnt = 0;
+        for (size_t i =0;i < buff.size();i++)
+        {
+            buff[i] = std::complex<int16_t>((cnt+0)<<4, (cnt+1)<<4);
+            buff2[i] = std::complex<int16_t>((cnt+2)<<4, (cnt+3)<<4);
+            cnt += 4;
+        }
         buffs[0] = buff.data();
-        buffs[1] = buff.data();
+        buffs[1] = buff2.data();
         r = device->writeStream(txStream, buffs.data(), NUM_SAMPS, flags, txTimeNs);
         if (r < 0)
         {

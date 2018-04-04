@@ -219,6 +219,13 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     const size_t mtuLayer2Bytes = IPv6_UDP_SIZE + TWBW_HDR_SIZE + data->mtuElements*data->bytesPerElement;
     const size_t mtuBufferedBytes = ROUTE_HDR_SIZE + PADDED_ETH_HDR_SIZE + mtuLayer2Bytes;
     data->windowSize = txFifoDepthBytes/mtuBufferedBytes;
+    std::cout << "mtuPayloadBytes " << mtuPayloadBytes << std::endl;
+    std::cout << "bytesPerElement " << data->bytesPerElement << std::endl;
+    std::cout << "mtuElements " << data->mtuElements << std::endl;
+    std::cout << "hostFormatSize " << data->hostFormatSize << std::endl;
+    std::cout << "mtuLayer2Bytes " << mtuLayer2Bytes << std::endl;
+    std::cout << "mtuBufferedBytes " << mtuBufferedBytes << std::endl;
+    std::cout << "windowSize " << data->windowSize << std::endl;
 
     //true by default, async can be useful, but it might cause a race w/ trigger and activate
     data->syncActivate = true;
@@ -728,6 +735,23 @@ void SoapyIrisLocal::releaseWriteBuffer(
         trigger,
         seqRequest and not burstEnd, //burst end produces a status message anyway
         data->nextSeqSend++);
+
+    printf("Output pkt of len = %d\n", (int)len);
+    unsigned char *p = (unsigned char *)data->buff;
+    for (size_t i = 0; i < len;)
+    {
+        printf("%.4x: %.2x %.2x %.2x %.2x  %.2x %.2x %.2x %.2x\n", (unsigned)i,
+            (unsigned)p[i+7],
+            (unsigned)p[i+6],
+            (unsigned)p[i+5],
+            (unsigned)p[i+4],
+            (unsigned)p[i+3],
+            (unsigned)p[i+2],
+            (unsigned)p[i+1],
+            (unsigned)p[i+0]
+        );
+        i+=8;
+    }
 
     int ret = data->sock.send(data->buff, len);
     if (ret != int(len)) SoapySDR::logf(SOAPY_SDR_ERROR,

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Skylark Wireless LLC
+// Copyright (c) 2017-2018 Skylark Wireless LLC
 // SPDX-License-Identifier: BSD-3-Clause
 
 //-------------------------------------------------------------
@@ -16,6 +16,7 @@ static SoapySDR::Kwargs modifyArgs(SoapySDR::Kwargs args, const long timeoutUs =
     args["driver"] = "remote";
     args["remote:driver"] = "iris-arm";
     if (timeoutUs != -1) args["remote:timeout"] = std::to_string(timeoutUs);
+    if (args.count("timeout") != 0) args["remote:timeout"] = args["timeout"];
     return args;
 }
 

@@ -49,9 +49,6 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    //use the RX only antenna, and TRX for tx
-    for (auto ch : channels) device->setAntenna(SOAPY_SDR_RX, ch, "RX");
-
     std::cout << "setting samples rates to " << rate/1e6 << " Msps..." << std::endl;
     for (auto ch : channels)
     {

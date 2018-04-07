@@ -706,10 +706,21 @@ void SoapyIrisLocal::releaseWriteBuffer(
     void *payload;
     size_t len = 0;
     bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
+    const long long expectedTickCount = data->tickCount;
     if (hasTime) data->tickCount = this->timeNsToTicks(timeNs, _dacClockRate);
     else if (data->inBurst and data->burstUsesTime) hasTime = true;
     const bool burstEnd((flags & SOAPY_SDR_END_BURST) != 0);
     const bool trigger((flags & SOAPY_SDR_WAIT_TRIGGER) != 0);
+
+    //sanity checks for burst values
+    if (data->inBurst and !data->burstUsesTime and hasTime)
+    {
+        SoapySDR::logf(SOAPY_SDR_WARNING, "Got a timestamp in a data burst that began without a timestamp!");
+    }
+    if (data->inBurst and hasTime and data->burstUsesTime and expectedTickCount != data->tickCount)
+    {
+        SoapySDR::logf(SOAPY_SDR_WARNING, "Discontinuous timestamp in a burst: expected=%lld, actual=%lld", expectedTickCount, data->tickCount);
+    }
 
     //request sequence packets once in a while with this metric
     const bool seqRequest = (data->nextSeqSend)%(data->windowSize/8) == 0;

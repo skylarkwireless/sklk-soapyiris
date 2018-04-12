@@ -1,6 +1,6 @@
 This this the changelog file for the SoapyIris project.
 
-Release 2018.03.1.1 (pending)
+Release 2018.04.0.1 (2018-04-12)
 ==========================
 
 - support timeout keyword in args (same as remote:timeout)

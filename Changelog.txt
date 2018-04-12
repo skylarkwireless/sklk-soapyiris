@@ -1,6 +1,6 @@
 This this the changelog file for the SoapyIris project.
 
-Release 2018.03.0.2 (pending)
+Release 2018.03.0.2 (2018-04-12)
 ==========================
 
 - fixed multi-buffer readStream accounting

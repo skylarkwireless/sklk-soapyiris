@@ -6,7 +6,7 @@ Release 2018.03.1.1 (pending)
 - support timeout keyword in args (same as remote:timeout)
 - attempt to use soapyremote 0.7 feature stream bypass
 
-Release 2018.03.0.2 (pending)
+Release 2018.03.0.2 (2018-04-12)
 ==========================
 
 - fixed multi-buffer readStream accounting

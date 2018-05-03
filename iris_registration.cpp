@@ -49,7 +49,7 @@ static SoapySDR::Device *makeIrisLocal(const SoapySDR::Kwargs &args)
         if (not hasRemoteSupportInstalled())
             throw std::runtime_error("Missing SoapyRemote support module required by SoapyIris!");
         else
-            throw std::runtime_error("No Iris found on local network!");
+            throw std::runtime_error("No Iris found on local network! " + SoapySDR::KwargsToString(args));
     }
     return new SoapyIrisLocal(modifyArgs(args));
 }

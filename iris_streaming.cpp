@@ -240,6 +240,8 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     args["iris:ip6_dst"] = localEp.getNode();
     args["iris:udp_dst"] = localEp.getService();
     args["iris:mtu"] = std::to_string(data->mtuElements);
+    SoapySDR::logf(SOAPY_SDR_INFO, "mtu %d bytes -> %d samples X %d channels, %d bytes per element",
+        int(mtu), int(data->mtuElements), int(data->numHostChannels), int(data->bytesPerElement));
 
     //is the bypass mode supported for hardware acceleration?
     bool tryBypassMode(false);

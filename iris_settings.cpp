@@ -57,31 +57,14 @@ SoapyIrisLocal::SoapyIrisLocal(const SoapySDR::Kwargs &args):
     auto fwVer = VersionParser(hwInfo["firmware"]);
     auto fpgaVer = VersionParser(hwInfo["fpga"]);
 
-    //check the driver version for series match, and dirty bit
-    if (driverVer.series != fwVer.series)
-    {
-        SoapySDR::logf(SOAPY_SDR_ERROR,
-            "Firmware version mismatch! Expected %s but found firmware with version %s",
-            driverVer.series.c_str(), fwVer.version.c_str());
-    }
-    else if (fwVer.dirty)
-    {
-        SoapySDR::logf(SOAPY_SDR_WARNING,
-            "Development image: firmware has dirty bit set!");
-    }
+    //check if the firmware and fpga do not match
+    if (fpgaVer.series != fwVer.series) SoapySDR::logf(SOAPY_SDR_ERROR,
+        "FPGA/firmware version mismatch! FPGA reports version %s, but firmware reports version %s",
+        fpgaVer.version.c_str(), fwVer.version.c_str());
 
-    //check the fpga version for series match, and dirty bit
-    if (driverVer.series != fpgaVer.series)
-    {
-        SoapySDR::logf(SOAPY_SDR_ERROR,
-            "FPGA version mismatch! Expected %s but found FPGA with version %s",
-            driverVer.series.c_str(), fpgaVer.version.c_str());
-    }
-    else if (fpgaVer.dirty)
-    {
-        SoapySDR::logf(SOAPY_SDR_WARNING,
-            "Development image: FPGA image has dirty bit set!");
-    }
+    //check for dirty bits and produce warnings
+    if (fwVer.dirty)   SoapySDR::logf(SOAPY_SDR_WARNING, "Development image: firmware has dirty bit set!");
+    if (fpgaVer.dirty) SoapySDR::logf(SOAPY_SDR_WARNING, "Development image: FPGA image has dirty bit set!");
 }
 
 SoapyIrisLocal::~SoapyIrisLocal(void)

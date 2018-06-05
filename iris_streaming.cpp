@@ -587,32 +587,30 @@ int SoapyIrisLocal::acquireReadBuffer(
     int ret = data->sock.recv(data->buff, sizeof(data->buff));
     if (ret < 0) return SOAPY_SDR_STREAM_ERROR;
 
-    size_t numSamps;
-    bool overflow;
-    int idTag;
-    bool hasTime;
-    long long timeTicks;
-    bool timeError;
-    bool isBurst;
-    bool isTrigger;
-    bool burstEnd;
-    twbw_framer_data_unpacker(
-        data->buff,
-        size_t(ret),
-        sizeof(uint64_t),
-        data->bytesPerElement,
-        buffs[0],
-        numSamps,
-        overflow,
-        idTag,
-        hasTime,
-        timeTicks,
-        timeError,
-        isBurst,
-        isTrigger,
-        burstEnd);
-    //std::cout << "numSamps " << numSamps << std::endl;
-    //std::cout << "burstEnd " << burstEnd << std::endl;
+    //unpacker logic for twbw_rx_framer64
+    const auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
+    //std::cout << "===========================================\n";
+    //std::cout << "read udp ret = " << ret << std::endl;
+    //std::cout << "hdr0 " << std::hex << hdr64[0] << std::endl;
+    //std::cout << "hdr1 " << std::hex << hdr64[1] << std::endl;
+    buffs[0] = (void *)(hdr64+2); //payload start
+    const bool hasTime = (hdr64[0] & (1 << 31)) != 0;
+    const bool timeError = (hdr64[0] & (1 << 30)) != 0;
+    const bool overflow = (hdr64[0] & (1 << 29)) != 0;
+    const bool isBurst = (hdr64[0] & (1 << 28)) != 0;
+    const bool isTrigger = (hdr64[0] & (1 << 26)) != 0;
+    const long long timeTicks = (long long)hdr64[1];
+    const size_t burstCount = size_t(hdr64[0] & 0xffff) + 1;
+    const size_t payloadBytes = size_t(ret)-(sizeof(uint64_t)*2);
+    size_t numSamps = payloadBytes/data->bytesPerElement;
+
+    //or end of burst but not totally full due to packing
+    bool burstEnd = false;
+    if (isBurst and burstCount <= numSamps and ((numSamps-burstCount)*data->bytesPerElement) < sizeof(uint64_t))
+    {
+        numSamps = burstCount;
+        burstEnd = true;
+    }
 
     flags = 0;
     ret = 0;
@@ -632,7 +630,7 @@ int SoapyIrisLocal::acquireReadBuffer(
 
     //error indicators
     if (overflow) flags |= SOAPY_SDR_END_ABRUPT;
-    /*if (hasTime)*/ flags |= SOAPY_SDR_HAS_TIME; //always has time
+    if (hasTime) flags |= SOAPY_SDR_HAS_TIME; //always has time
     if (burstEnd) flags |= SOAPY_SDR_END_BURST;
     if (isTrigger) flags |= SOAPY_SDR_WAIT_TRIGGER;
 

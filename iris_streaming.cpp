@@ -13,7 +13,6 @@
 #include <SoapyURLUtils.hpp>
 #include <ThreadPrioHelper.hpp>
 #include "iris_formats.hpp"
-#include "twbw_helper.h"
 #include <iostream>
 #include <memory>
 #include <atomic>
@@ -470,7 +469,7 @@ void IrisLocalStream::statusLoop(void)
     {
         if (not this->sock.selectRecv(100000)) continue;
 
-        uint32_t buff[16];
+        uint64_t buff[16];
         int ret = this->sock.recv(buff, sizeof(buff));
         if (ret < 0) //socket error, end loop
         {
@@ -482,27 +481,30 @@ void IrisLocalStream::statusLoop(void)
             return;
         }
 
+        /*out_status_end_burst, out_status_underflow, out_status_time_late, out_status_has_time, out_status_valid, sequence_terror, sequence_tvalid, //86:80
+        sequence_tdata, //79:64
+        out_status_time}; //63:0*/
         StreamStatusEntry entry;
-        bool underflow;
-        int idTag = 0;
-        bool hasTime;
-        bool timeError;
-        bool burstEnd;
-        bool hasSequence;
-        unsigned short sequence;
-        bool seqError;
-        twbw_deframer_stat_unpacker(
-            buff,
-            sizeof(buff),
-            underflow,
-            idTag,
-            hasTime,
-            entry.timeTicks,
-            timeError,
-            burstEnd,
-            hasSequence,
-            sequence,
-            seqError);
+        entry.timeTicks = buff[0];
+        const unsigned short sequence = (buff[1] & 0xffff);
+        const bool hasSequence  = (buff[1] & (1 << 16)) != 0;
+        const bool seqError     = hasSequence and (buff[1] & (1 << 17)) != 0;
+        const bool hasStatus    = (buff[1] & (1 << 18)) != 0;
+        const bool hasTime      = hasStatus and (buff[1] & (1 << 19)) != 0;
+        const bool timeError    = hasStatus and (buff[1] & (1 << 20)) != 0;
+        const bool underflow    = hasStatus and (buff[1] & (1 << 21)) != 0;
+        const bool burstEnd     = hasStatus and (buff[1] & (1 << 22)) != 0;
+        /*std::cout << "got stat ret = " << std::dec << ret << std::endl;
+        std::cout << "buff[0] " << std::hex << buff[0] << std::endl;
+        std::cout << "buff[1] " << std::hex << buff[1] << std::endl;
+        std::cout << "hasSequence " << hasSequence << std::endl;
+        std::cout << "sequence " << sequence << std::endl;
+        std::cout << "seqError " << seqError << std::endl;
+        std::cout << "hasStatus " << hasStatus << std::endl;
+        std::cout << "hasTime " << hasTime << std::endl;
+        std::cout << "timeError " << timeError << std::endl;
+        std::cout << "underflow " << underflow << std::endl;
+        std::cout << "burstEnd " << burstEnd << std::endl;//*/
 
         //every status message contains a sequence
         //hasSequence just tells us it was a requested event
@@ -515,8 +517,8 @@ void IrisLocalStream::statusLoop(void)
         if (underflow) entry.ret = SOAPY_SDR_UNDERFLOW;
         if (seqError) entry.ret = SOAPY_SDR_CORRUPTION;
 
-        //enqueue status messages when its not sequence only
-        if (!hasSequence)
+        //enqueue status messages
+        if (hasStatus or seqError)
         {
             if (underflow) std::cerr << "U" << std::flush;
             if (timeError) std::cerr << "T" << std::flush;
@@ -565,7 +567,7 @@ size_t SoapyIrisLocal::getNumDirectAccessBuffers(SoapySDR::Stream *)
 int SoapyIrisLocal::getDirectAccessBufferAddrs(SoapySDR::Stream *stream, const size_t /*handle*/, void **buffs)
 {
     auto data = (IrisLocalStream *)stream;
-    buffs[0] = data->buff + TWBW_HDR_SIZE;
+    buffs[0] = data->buff + (sizeof(uint64_t)*2);
     return 0;
 }
 
@@ -590,7 +592,7 @@ int SoapyIrisLocal::acquireReadBuffer(
     //unpacker logic for twbw_rx_framer64
     const auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
     //std::cout << "===========================================\n";
-    //std::cout << "read udp ret = " << ret << std::endl;
+    //std::cout << "read udp ret = " << std::dec << ret << std::endl;
     //std::cout << "hdr0 " << std::hex << hdr64[0] << std::endl;
     //std::cout << "hdr1 " << std::hex << hdr64[1] << std::endl;
     buffs[0] = (void *)(hdr64+2); //payload start
@@ -703,7 +705,7 @@ void SoapyIrisLocal::releaseWriteBuffer(
     auto data = (IrisLocalStream *)stream;
 
     //pack the header
-    void *payload;
+    //void *payload;
     size_t len = 0;
     bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
     const long long expectedTickCount = data->tickCount;
@@ -725,20 +727,17 @@ void SoapyIrisLocal::releaseWriteBuffer(
     //request sequence packets once in a while with this metric
     const bool seqRequest = (data->nextSeqSend)%(data->windowSize/8) == 0;
 
-    twbw_deframer_data_packer(
-        data->buff,
-        len,
-        sizeof(uint64_t),
-        data->bytesPerElement,
-        payload,
-        numElems,
-        0,
-        hasTime,
-        data->tickCount,
-        burstEnd,
-        trigger,
-        seqRequest and not burstEnd, //burst end produces a status message anyway
-        data->nextSeqSend++);
+    //packer logic for twbw_tx_deframer64
+    auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
+    hdr64[0] = (uint64_t(numElems-1) & 0xffff) |
+                (uint64_t(data->nextSeqSend++) & 0xffff) << 32;
+    if (hasTime)    hdr64[0] |= (uint64_t(1) << 31);
+    if (burstEnd)   hdr64[0] |= (uint64_t(1) << 28);
+    if (trigger)    hdr64[0] |= (uint64_t(1) << 26);
+    if (seqRequest) hdr64[0] |= (uint64_t(1) << 25);
+    hdr64[1] = data->tickCount;
+    len = (sizeof(uint64_t)*2) + numElems*data->bytesPerElement;
+    //std::cout << "hdr64[0] " << std::hex << hdr64[0] << std::endl;
 
     int ret = data->sock.send(data->buff, len);
     if (ret != int(len)) SoapySDR::logf(SOAPY_SDR_ERROR,

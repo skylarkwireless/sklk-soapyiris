@@ -1,0 +1,109 @@
+#!/bin/bash
+################################################################################
+#
+# Copyright Skylark Wireless LLC 2017
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Info: This script finds a unique script by name (symlink to this file),
+# goes down into the directory, and executes the script, then comes back. This
+# provides a utility which doesn't require the user to cd around, allowing
+# editing from the top down (for example to ensure ctags works)
+#
+# Usage: ln -s $name <your_script_name_way_too_far_from_here>
+#
+################################################################################
+# Helpers to create banners on an 80-column terminal
+################################################################################
+# misc functions
+banner() { #print wrapper for extending echo services with debug and banners (TBD)
+    case $1 in
+        0) hash_c="";return;;
+        1) hash_c="#";;
+        2) hash_c="+";;
+        3) hash_c="-";;
+        *) hash_c="";return;;
+    esac
+
+    local ii=0;
+    for ((ii=0; ii < 80; ii++)); do #banner
+        printf "%c" $hash_c
+    done
+
+    printf "\n"
+
+}
+
+PW_DBG=-4
+PW_ERR=-3
+PW_WRN=-2
+PW_NFO=-1
+PW_OK=1
+
+start_t=$(date +%s)
+
+pw() { #print wrapper for extending echo services with debug and banners (TBD)
+    pw_type=$1
+    shift
+    banner $pw_type
+    cur_t=$(date +%s)
+    run_t=$((cur_t - start_t))
+
+    if [[ $SKLK_COLORS -eq 1 ]]; then
+        if [[ $SKLK_TIME -eq 1 ]]; then
+            case $pw_type in
+               $PW_DBG) [ ! -z $dbg ] &&\
+                        printf "\033[35m[SKLK] %s\033[0m\n" "[$run_t] $*";;
+               $PW_ERR) printf "\033[31m[SKLK] %s\033[0m\n" "[$run_t] $*";;
+               $PW_WRN) printf "\033[33m[SKLK] %s\033[0m\n" "[$run_t] $*";;
+               $PW_NFO) printf "\033[32m[SKLK] %s\033[0m\n" "[$run_t] $*";;
+                     *) printf "%s\n" "[$run_t] $*";;
+            esac
+        else
+            case $pw_type in
+               $PW_DBG) [ ! -z $dbg ] &&\
+                        printf "\033[35m[SKLK] %s\033[0m\n" "$*";;
+               $PW_ERR) printf "\033[31m[SKLK] %s\033[0m\n" "$*";;
+               $PW_WRN) printf "\033[33m[SKLK] %s\033[0m\n" "$*";;
+               $PW_NFO) printf "\033[32m[SKLK] %s\033[0m\n" "$*";;
+               $PW_OK ) printf "$(basename $0): [SKLK] %s\n" "$*";;
+                     *) printf "%s\n" "$*";;
+            esac
+        fi
+    else
+        if [[ $SKLK_TIME -eq 1 ]]; then
+            case $pw_type in
+               $PW_DBG) [ ! -z $dbg ] &&\
+                        printf "<dbg>: [SKLK] %s\n" "[$run_t] $*";;
+               $PW_ERR) printf "<err>: [SKLK] %s\n" "[$run_t] $*";;
+               $PW_WRN) printf "<wrn>: [SKLK] %s\n" "[$run_t] $*";;
+               $PW_NFO) printf "<nfo>: [SKLK] %s\n" "[$run_t] $*";;
+               $PW_OK ) printf "$(basename $0): [SKLK] %s\n" "$*";;
+                     *) printf "%s\n" "[$run_t] $*";;
+            esac
+        else
+            case $pw_type in
+               $PW_DBG) [ ! -z $dbg ] &&\
+                        printf "<dbg>: [SKLK] %s\n" "$*";;
+               $PW_ERR) printf "<err>: [SKLK] %s\n" "$*";;
+               $PW_WRN) printf "<wrn>: [SKLK] %s\n" "$*";;
+               $PW_NFO) printf "<nfo>: [SKLK] %s\n" "$*";;
+               $PW_OK ) printf "$(basename $0): [SKLK] %s\n" "$*";;
+                     *) printf "%s\n" "$*";;
+            esac
+        fi
+
+    fi
+    banner $pw_type
+}
+
+wheel_idx=2
+wheel() {
+    case $wheel_idx in
+        0) printf "\\" ;;
+        1) printf "|"  ;;
+        2) printf "/"  ;;
+        3) printf "-"  ;;
+    esac
+    wheel_idx=$(((wheel_idx + 1)%4))
+    printf "\r"
+}

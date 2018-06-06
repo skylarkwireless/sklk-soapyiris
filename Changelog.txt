@@ -1,5 +1,11 @@
 This this the changelog file for the SoapyIris project.
 
+Release 2018.05.0.2 (pending)
+==========================
+
+- Fixed writeBuffer() loop for SOAPY_SDR_WAIT_TRIGGER flag
+  The flag should be cleared for subsequent loop iterations
+
 Release 2018.05.0.1 (2018-05-01)
 ==========================
 

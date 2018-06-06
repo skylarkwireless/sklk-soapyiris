@@ -453,7 +453,7 @@ int SoapyIrisLocal::writeStream(
 
         //release the buffer to send the samples
         this->releaseWriteBuffer(stream, handle, numSamples, flags_i, timeNs);
-        flags &= ~(SOAPY_SDR_HAS_TIME); //only valid on the first release
+        flags &= ~(SOAPY_SDR_HAS_TIME | SOAPY_SDR_WAIT_TRIGGER); //only valid on the first release
         numSent += numSamples;
 
     } while (numSent != numElems and not onePkt);

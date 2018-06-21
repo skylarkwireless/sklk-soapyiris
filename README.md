@@ -15,3 +15,9 @@ Use the SoapyIris wiki for installation/build instructions, basic usage, and exa
 sklk-SoapyIris is available for use under the 3-clause (or "modified") BSD license:
 
 * See https://github.com/skylarkwireless/sklk-soapyiris/blob/master/BSD-3-CLAUSE-LICENSE.txt
+
+## Demos and examples
+
+Visit the sklk-demos repository for demonstration applications:
+
+* See https://github.com/skylarkwireless/sklk-demos/wiki

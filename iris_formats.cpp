@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Skylark Wireless LLC
+// Copyright (c) 2017-2018 Skylark Wireless LLC
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "iris_formats.hpp"
@@ -29,6 +29,7 @@ void resolveFormats(
     if (numChannels == 1 and localFormat == SOAPY_SDR_CS16) localFormatOut = SF_CS16_x1_WIRE24;
     if (numChannels == 1 and localFormat == SOAPY_SDR_CS12) localFormatOut = SF_CS12_x1_WIRE24;
     if (numChannels == 1 and localFormat == SOAPY_SDR_CS8 ) localFormatOut = SF_CS8_x1_WIRE16;
+    if (numChannels == 2 and localFormat == SOAPY_SDR_CS8 ) localFormatOut = SF_CS8_x2_WIRE32;
 
     //formats for specific requested wire formats
     if (numChannels == 1 and localFormat == SOAPY_SDR_CF32 and reqWireFmt == SOAPY_SDR_CS8 ) localFormatOut = SF_CF32_x1_WIRE16;
@@ -47,6 +48,7 @@ void resolveFormats(
     case SF_CS16_x1_WIRE24: remoteFormatOut = SOAPY_SDR_CS12; break;
     case SF_CF32_x1_WIRE24: remoteFormatOut = SOAPY_SDR_CS12; break;
     case SF_CS16_x1_WIRE32: remoteFormatOut = SOAPY_SDR_CS16; break;
+    case SF_CS8_x2_WIRE32 : remoteFormatOut = SOAPY_SDR_CS8 ; break;
     case SF_CS12_x2_WIRE48: remoteFormatOut = SOAPY_SDR_CS12; break;
     case SF_CS16_x2_WIRE48: remoteFormatOut = SOAPY_SDR_CS12; break;
     case SF_CF32_x2_WIRE48: remoteFormatOut = SOAPY_SDR_CS12; break;
@@ -364,6 +366,37 @@ static void cf32x1_to_wire16(const void * const *inBuffs, void *outBuff, const s
 }
 
 /***************************************************
+ * SF_CS8_x2_WIRE32
+ **************************************************/
+static void wire32_to_cs8x2(const void *inBuff, void * const *outBuffs, const size_t num)
+{
+    auto in = (int8_t *)inBuff;
+    auto out0 = (int8_t *)outBuffs[0];
+    auto out1 = (int8_t *)outBuffs[1];
+    for (size_t j = 0; j < num; j++)
+    {
+        *(out0++) = *(in++);
+        *(out0++) = *(in++);
+        *(out1++) = *(in++);
+        *(out1++) = *(in++);
+    }
+}
+
+static void cs8x2_to_wire32(const void * const *inBuffs, void *outBuff, const size_t num)
+{
+    auto in0 = (int8_t *)inBuffs[0];
+    auto in1 = (int8_t *)inBuffs[1];
+    auto out = (int8_t *)outBuff;
+    for (size_t j = 0; j < num; j++)
+    {
+        *(out++) = *(in0++);
+        *(out++) = *(in0++);
+        *(out++) = *(in1++);
+        *(out++) = *(in1++);
+    }
+}
+
+/***************************************************
  * Conversion dispatchers
  **************************************************/
 void convertToHost(
@@ -382,6 +415,7 @@ void convertToHost(
     case SF_CS16_x1_WIRE24: return wire48_to_cs16x1(inBuff, outBuffs, numSamples);
     case SF_CF32_x1_WIRE24: return wire48_to_cf32x1(inBuff, outBuffs, numSamples);
     case SF_CS16_x1_WIRE32: std::memcpy(outBuffs[0], inBuff, numSamples*4); return;
+    case SF_CS8_x2_WIRE32 : return wire32_to_cs8x2(inBuff, outBuffs, numSamples);
     case SF_CS12_x2_WIRE48: return wire48_to_cs12x2(inBuff, outBuffs, numSamples);
     case SF_CS16_x2_WIRE48: return wire48_to_cs16x2(inBuff, outBuffs, numSamples);
     case SF_CF32_x2_WIRE48: return wire48_to_cf32x2(inBuff, outBuffs, numSamples);
@@ -406,6 +440,7 @@ void convertToWire(
     case SF_CS16_x1_WIRE24: return cs16x1_to_wire48(inBuffs, outBuff, numSamples);
     case SF_CF32_x1_WIRE24: return cf32x1_to_wire48(inBuffs, outBuff, numSamples);
     case SF_CS16_x1_WIRE32: std::memcpy(outBuff, inBuffs[0], numSamples*4); return;
+    case SF_CS8_x2_WIRE32 : return cs8x2_to_wire32(inBuffs, outBuff, numSamples);
     case SF_CS12_x2_WIRE48: return cs12x2_to_wire48(inBuffs, outBuff, numSamples);
     case SF_CS16_x2_WIRE48: return cs16x2_to_wire48(inBuffs, outBuff, numSamples);
     case SF_CF32_x2_WIRE48: return cf32x2_to_wire48(inBuffs, outBuff, numSamples);

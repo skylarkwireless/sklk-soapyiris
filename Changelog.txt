@@ -3,6 +3,7 @@ This this the changelog file for the SoapyIris project.
 Release 2018.06.0.1 (pending)
 ==========================
 
+- Converter support for dual channel complex 8-bit streaming
 - Remove driver series check, just compare firmware vs FPGA.
   The print was basically always out of date and we just need
   to confirm that the streaming protocol is actually matched.

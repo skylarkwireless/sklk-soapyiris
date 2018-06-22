@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Skylark Wireless LLC
+// Copyright (c) 2017-2018 Skylark Wireless LLC
 // SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
@@ -15,6 +15,7 @@ enum StreamFormat
     SF_CS16_x1_WIRE24,
     SF_CF32_x1_WIRE24,
     SF_CS16_x1_WIRE32,
+    SF_CS8_x2_WIRE32,
     SF_CS12_x2_WIRE48,
     SF_CS16_x2_WIRE48,
     SF_CF32_x2_WIRE48,

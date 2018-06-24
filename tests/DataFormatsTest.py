@@ -109,6 +109,9 @@ class TestDataFormats(unittest.TestCase):
                 self.loopbackWaves(numSamps=numSamps+extra, mod=128,
                     rxFormat=SOAPY_SDR_CS16, rxChans=[0], rxType=np.uint16, rxWire=SOAPY_SDR_CS8,
                     txFormat=SOAPY_SDR_CS16, txChans=[0], txType=np.uint16, txWire=SOAPY_SDR_CS8)
+                self.loopbackWaves(numSamps=numSamps+extra, mod=128,
+                    rxFormat=SOAPY_SDR_CS16, rxChans=[0, 1], rxType=np.uint16, rxWire=SOAPY_SDR_CS8,
+                    txFormat=SOAPY_SDR_CS16, txChans=[0, 1], txType=np.uint16, txWire=SOAPY_SDR_CS8)
 
     def loopbackBytes(self, numSamps, rxFormat, rxChans, rxWire, txFormat, txChans, txWire):
         print("#"*40)
@@ -181,6 +184,9 @@ class TestDataFormats(unittest.TestCase):
                 self.loopbackBytes(numSamps=numSamps+extra,
                     rxFormat=SOAPY_SDR_CS8, rxChans=[0], rxWire='',
                     txFormat=SOAPY_SDR_CS8, txChans=[0], txWire='')
+                self.loopbackBytes(numSamps=numSamps+extra,
+                    rxFormat=SOAPY_SDR_CS8, rxChans=[0, 1], rxWire='',
+                    txFormat=SOAPY_SDR_CS8, txChans=[0, 1], txWire='')
 
 if __name__ == '__main__':
     unittest.main()

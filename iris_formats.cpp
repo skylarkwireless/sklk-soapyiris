@@ -37,6 +37,8 @@ void resolveFormats(
     if (numChannels == 2 and localFormat == SOAPY_SDR_CS16 and reqWireFmt == SOAPY_SDR_CS16) localFormatOut = SF_CS16_x2_WIRE64;
     if (numChannels == 2 and localFormat == SOAPY_SDR_CF32 and reqWireFmt == SOAPY_SDR_CS16) localFormatOut = SF_CF32_x2_WIRE64;
     if (numChannels == 1 and localFormat == SOAPY_SDR_CS16 and reqWireFmt == SOAPY_SDR_CS16) localFormatOut = SF_CS16_x1_WIRE32;
+    if (numChannels == 2 and localFormat == SOAPY_SDR_CS16 and reqWireFmt == SOAPY_SDR_CS8 ) localFormatOut = SF_CS16_x2_WIRE32;
+    if (numChannels == 2 and localFormat == SOAPY_SDR_CF32 and reqWireFmt == SOAPY_SDR_CS8 ) localFormatOut = SF_CF32_x2_WIRE32;
 
     switch(localFormatOut)
     {
@@ -49,6 +51,8 @@ void resolveFormats(
     case SF_CF32_x1_WIRE24: remoteFormatOut = SOAPY_SDR_CS12; break;
     case SF_CS16_x1_WIRE32: remoteFormatOut = SOAPY_SDR_CS16; break;
     case SF_CS8_x2_WIRE32 : remoteFormatOut = SOAPY_SDR_CS8 ; break;
+    case SF_CS16_x2_WIRE32: remoteFormatOut = SOAPY_SDR_CS8 ; break;
+    case SF_CF32_x2_WIRE32: remoteFormatOut = SOAPY_SDR_CS8 ; break;
     case SF_CS12_x2_WIRE48: remoteFormatOut = SOAPY_SDR_CS12; break;
     case SF_CS16_x2_WIRE48: remoteFormatOut = SOAPY_SDR_CS12; break;
     case SF_CF32_x2_WIRE48: remoteFormatOut = SOAPY_SDR_CS12; break;
@@ -397,6 +401,70 @@ static void cs8x2_to_wire32(const void * const *inBuffs, void *outBuff, const si
 }
 
 /***************************************************
+ * SF_CS16_x2_WIRE32
+ **************************************************/
+static void wire32_to_cs16x2(const void *inBuff, void * const *outBuffs, const size_t num)
+{
+    auto in = (int8_t *)inBuff;
+    auto out0 = (int16_t *)outBuffs[0];
+    auto out1 = (int16_t *)outBuffs[1];
+    for (size_t j = 0; j < num; j++)
+    {
+        *(out0++) = int16_t(*(in++));
+        *(out0++) = int16_t(*(in++));
+        *(out1++) = int16_t(*(in++));
+        *(out1++) = int16_t(*(in++));
+    }
+}
+
+static void cs16x2_to_wire32(const void * const *inBuffs, void *outBuff, const size_t num)
+{
+    auto in0 = (int16_t *)inBuffs[0];
+    auto in1 = (int16_t *)inBuffs[1];
+    auto out = (int8_t *)outBuff;
+    for (size_t j = 0; j < num; j++)
+    {
+        *(out++) = int8_t(*(in0++));
+        *(out++) = int8_t(*(in0++));
+        *(out++) = int8_t(*(in1++));
+        *(out++) = int8_t(*(in1++));
+    }
+}
+
+/***************************************************
+ * SF_CF32_x2_WIRE32
+ **************************************************/
+static void wire32_to_cf32x2(const void *inBuff, void * const *outBuffs, const size_t num)
+{
+    static constexpr auto scale = float(1.0)/float(1 << 7);
+    auto in = (int8_t *)inBuff;
+    auto out0 = (float *)outBuffs[0];
+    auto out1 = (float *)outBuffs[1];
+    for (size_t j = 0; j < num; j++)
+    {
+        *(out0++) = float(*(in++))*scale;
+        *(out0++) = float(*(in++))*scale;
+        *(out1++) = float(*(in++))*scale;
+        *(out1++) = float(*(in++))*scale;
+    }
+}
+
+static void cf32x2_to_wire32(const void * const *inBuffs, void *outBuff, const size_t num)
+{
+    static constexpr auto scale = float(1 << 7);
+    auto in0 = (float *)inBuffs[0];
+    auto in1 = (float *)inBuffs[1];
+    auto out = (int8_t *)outBuff;
+    for (size_t j = 0; j < num; j++)
+    {
+        *(out++) = int8_t(*(in0++)*scale);
+        *(out++) = int8_t(*(in0++)*scale);
+        *(out++) = int8_t(*(in1++)*scale);
+        *(out++) = int8_t(*(in1++)*scale);
+    }
+}
+
+/***************************************************
  * Conversion dispatchers
  **************************************************/
 void convertToHost(
@@ -416,6 +484,8 @@ void convertToHost(
     case SF_CF32_x1_WIRE24: return wire48_to_cf32x1(inBuff, outBuffs, numSamples);
     case SF_CS16_x1_WIRE32: std::memcpy(outBuffs[0], inBuff, numSamples*4); return;
     case SF_CS8_x2_WIRE32 : return wire32_to_cs8x2(inBuff, outBuffs, numSamples);
+    case SF_CS16_x2_WIRE32: return wire32_to_cs16x2(inBuff, outBuffs, numSamples);
+    case SF_CF32_x2_WIRE32: return wire32_to_cf32x2(inBuff, outBuffs, numSamples);
     case SF_CS12_x2_WIRE48: return wire48_to_cs12x2(inBuff, outBuffs, numSamples);
     case SF_CS16_x2_WIRE48: return wire48_to_cs16x2(inBuff, outBuffs, numSamples);
     case SF_CF32_x2_WIRE48: return wire48_to_cf32x2(inBuff, outBuffs, numSamples);
@@ -441,6 +511,8 @@ void convertToWire(
     case SF_CF32_x1_WIRE24: return cf32x1_to_wire48(inBuffs, outBuff, numSamples);
     case SF_CS16_x1_WIRE32: std::memcpy(outBuff, inBuffs[0], numSamples*4); return;
     case SF_CS8_x2_WIRE32 : return cs8x2_to_wire32(inBuffs, outBuff, numSamples);
+    case SF_CS16_x2_WIRE32: return cs16x2_to_wire32(inBuffs, outBuff, numSamples);
+    case SF_CF32_x2_WIRE32: return cf32x2_to_wire32(inBuffs, outBuff, numSamples);
     case SF_CS12_x2_WIRE48: return cs12x2_to_wire48(inBuffs, outBuff, numSamples);
     case SF_CS16_x2_WIRE48: return cs16x2_to_wire48(inBuffs, outBuff, numSamples);
     case SF_CF32_x2_WIRE48: return cf32x2_to_wire48(inBuffs, outBuff, numSamples);

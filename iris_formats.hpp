@@ -16,6 +16,8 @@ enum StreamFormat
     SF_CF32_x1_WIRE24,
     SF_CS16_x1_WIRE32,
     SF_CS8_x2_WIRE32,
+    SF_CS16_x2_WIRE32,
+    SF_CF32_x2_WIRE32,
     SF_CS12_x2_WIRE48,
     SF_CS16_x2_WIRE48,
     SF_CF32_x2_WIRE48,

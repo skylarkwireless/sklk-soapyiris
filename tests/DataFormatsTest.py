@@ -87,10 +87,9 @@ class TestDataFormats(unittest.TestCase):
         self.assertEqual(sr.ret, 0)
         self.assertNotEqual(sr.flags & SOAPY_SDR_END_BURST, 0)
 
-        delay = 1
-        np.testing.assert_array_equal(waveRxA[delay:], waveTxA[:-delay])
+        np.testing.assert_array_equal(waveRxA, waveTxA)
         if len(rxChans) == 2:
-            np.testing.assert_array_equal(waveRxB[delay:], waveTxB[:-delay])
+            np.testing.assert_array_equal(waveRxB, waveTxB)
 
         self.sdr.deactivateStream(rxStream)
         self.sdr.deactivateStream(txStream)
@@ -156,10 +155,9 @@ class TestDataFormats(unittest.TestCase):
         self.assertEqual(sr.ret, 0)
         self.assertNotEqual(sr.flags & SOAPY_SDR_END_BURST, 0)
 
-        delay = txSize
-        np.testing.assert_array_equal(waveRxA[delay:], waveTxA[:-delay])
+        np.testing.assert_array_equal(waveRxA, waveTxA)
         if len(rxChans) == 2:
-            np.testing.assert_array_equal(waveRxB[delay:], waveTxB[:-delay])
+            np.testing.assert_array_equal(waveRxB, waveTxB)
 
         self.sdr.deactivateStream(rxStream)
         self.sdr.deactivateStream(txStream)

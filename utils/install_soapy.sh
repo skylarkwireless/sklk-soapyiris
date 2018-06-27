@@ -43,7 +43,7 @@ esac
 done
 
 sudo apt update
-sudo apt-get install -y software-properties-common python3-software-properties python-software-properties git python3 python-numpy python3-numpy cmake swig python-dev build-essential libqt4-dev swig sip-dev python3-dev 
+sudo apt-get install -y software-properties-common python3-software-properties python-software-properties git python3 python-numpy python3-numpy cmake swig python-dev build-essential libqt4-dev swig sip-dev python3-dev avahi-daemon libavahi-client-dev
 
 if [ "$EXTRA_PACKAGES" = true ] ; then
 	echo Installing extra packages...

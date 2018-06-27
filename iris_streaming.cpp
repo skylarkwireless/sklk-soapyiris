@@ -159,6 +159,14 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     const std::vector<size_t> &_channels,
     const SoapySDR::Kwargs &_args)
 {
+    //check the stream protocol for compatibility
+    std::string streamProt("twbw32");
+    try{streamProt = _remote->readSetting("STREAM_PROTOCOL");}
+    catch (...){}
+    if (streamProt != "twbw64") throw std::runtime_error(
+        "Iris::setupStream: Stream protocol mismatch!"
+        "Expected protocol twbw64, but firmware supports " + streamProt);
+
     std::unique_ptr<IrisLocalStream> data(new IrisLocalStream);
     std::vector<size_t> channels(_channels);
     if (channels.empty()) channels.push_back(0);

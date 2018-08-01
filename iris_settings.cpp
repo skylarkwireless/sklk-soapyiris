@@ -310,8 +310,8 @@ SoapySDR::ArgInfoList SoapyIrisLocal::getFrequencyArgsInfo(const int direction, 
 void SoapyIrisLocal::setSampleRate(const int direction, const size_t channel, const double rate)
 {
     _remote->setSampleRate(direction, channel, rate);
-    if (direction == SOAPY_SDR_RX) _adcClockRate = rate*2;
-    if (direction == SOAPY_SDR_TX) _dacClockRate = rate*2;
+    if (direction == SOAPY_SDR_RX) _adcClockRate = rate;
+    if (direction == SOAPY_SDR_TX) _dacClockRate = rate;
 }
 
 double SoapyIrisLocal::getSampleRate(const int direction, const size_t channel) const

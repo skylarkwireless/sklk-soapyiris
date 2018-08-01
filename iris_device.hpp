@@ -270,10 +270,7 @@ public:
     long long timeNsToTicks(const long long timeNs, const double rate) const
     {
         if (rate == 0.0) return 0;
-        //intentionally use even numbers because we have a 2x clock
-        //and the time master aligns with strobe when setting
-        //this helps yield reliable pattern of odd/even with strobe
-        return SoapySDR::timeNsToTicks(timeNs, rate) & ~0x1;
+        return SoapySDR::timeNsToTicks(timeNs, rate);
     }
 
     /*******************************************************************

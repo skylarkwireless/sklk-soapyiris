@@ -396,7 +396,7 @@ int SoapyIrisLocal::readStream(
         convertToHost(data->format, (const void *)data->readOffset, buffsOffset, numSamples);
 
         //next internal tick count
-        data->tickCount += 2*numSamples;
+        data->tickCount += numSamples;
 
         //used entire buffer, release
         if ((data->readElemsLeft -= numSamples) == 0)
@@ -755,6 +755,6 @@ void SoapyIrisLocal::releaseWriteBuffer(
         if (!data->inBurst) data->burstUsesTime = hasTime;
         data->inBurst = !burstEnd;
         data->packetCount++;
-        data->tickCount += numElems*2;
+        data->tickCount += numElems;
     }
 }

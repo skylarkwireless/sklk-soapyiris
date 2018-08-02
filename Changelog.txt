@@ -4,6 +4,7 @@ Release 2018.06.0.1 (pending)
 ==========================
 
 - Converter support for dual channel complex 8-bit streaming
+- Switch to TWBW64 framing mode for Rx/Tx streams + status
 - Remove driver series check, just compare firmware vs FPGA.
   The print was basically always out of date and we just need
   to confirm that the streaming protocol is actually matched.

@@ -100,6 +100,8 @@ struct IrisLocalStream
     //async activate support
     std::shared_future<int> async;
     bool syncActivate;
+
+    bool tdd_mode;
 };
 
 /*******************************************************************
@@ -170,6 +172,9 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     std::unique_ptr<IrisLocalStream> data(new IrisLocalStream);
     std::vector<size_t> channels(_channels);
     if (channels.empty()) channels.push_back(0);
+
+
+    data->tdd_mode = _args.count("TDD")?true:false; //true;
 
     //format configuration settings
     std::string remoteFormat;
@@ -613,6 +618,7 @@ int SoapyIrisLocal::acquireReadBuffer(
     const size_t burstCount = size_t(hdr64[0] & 0xffff) + 1;
     const size_t payloadBytes = size_t(ret)-(sizeof(uint64_t)*2);
     size_t numSamps = payloadBytes/data->bytesPerElement;
+    
 
     //or end of burst but not totally full due to packing
     bool burstEnd = false;
@@ -626,7 +632,7 @@ int SoapyIrisLocal::acquireReadBuffer(
     ret = 0;
 
     //detect gaps in a burst due to drops
-    if (data->inBurst && data->tickCount != timeTicks)
+    if (data->inBurst && data->tickCount != timeTicks && !data->tdd_mode)
     {
         flags |= SOAPY_SDR_END_ABRUPT;
         std::cerr << "D" << std::flush;
@@ -716,9 +722,10 @@ void SoapyIrisLocal::releaseWriteBuffer(
     //void *payload;
     size_t len = 0;
     bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
+    
     const long long expectedTickCount = data->tickCount;
     if (hasTime) data->tickCount = this->timeNsToTicks(timeNs, _dacClockRate);
-    else if (data->inBurst and data->burstUsesTime) hasTime = true;
+    else if (data->inBurst and data->burstUsesTime and !data->tdd_mode) hasTime = true; 
     const bool burstEnd((flags & SOAPY_SDR_END_BURST) != 0);
     const bool trigger((flags & SOAPY_SDR_WAIT_TRIGGER) != 0);
 
@@ -739,7 +746,7 @@ void SoapyIrisLocal::releaseWriteBuffer(
     auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
     hdr64[0] = (uint64_t(numElems-1) & 0xffff) |
                 (uint64_t(data->nextSeqSend++) & 0xffff) << 32;
-    if (hasTime)    hdr64[0] |= (uint64_t(1) << 31);
+    if (hasTime)    hdr64[0] |= (uint64_t(1) << 31); 
     if (burstEnd)   hdr64[0] |= (uint64_t(1) << 28);
     if (trigger)    hdr64[0] |= (uint64_t(1) << 26);
     if (seqRequest) hdr64[0] |= (uint64_t(1) << 25);

@@ -9,7 +9,7 @@ Release 2018.06.0.1 (pending)
   The print was basically always out of date and we just need
   to confirm that the streaming protocol is actually matched.
 
-Release 2018.05.0.2 (pending)
+Release 2018.05.0.2 (2018-08-28)
 ==========================
 
 - Fixed writeBuffer() loop for SOAPY_SDR_WAIT_TRIGGER flag

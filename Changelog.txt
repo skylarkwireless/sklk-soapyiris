@@ -1,6 +1,6 @@
 This this the changelog file for the SoapyIris project.
 
-Release 2018.06.0.1 (pending)
+Release 2018.08.0.1 (2018-08-28)
 ==========================
 
 - Converter support for dual channel complex 8-bit streaming

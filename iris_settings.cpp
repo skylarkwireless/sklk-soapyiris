@@ -50,7 +50,8 @@ SoapyIrisLocal::SoapyIrisLocal(const SoapySDR::Kwargs &args):
     _remoteURL(args.at("remote")),
     _remote(SoapySDR::Device::make(args)),
     _adcClockRate(0.0),
-    _dacClockRate(0.0)
+    _dacClockRate(0.0),
+    _tddMode(false)
 {
     auto hwInfo = this->getHardwareInfo();
     auto driverVer = VersionParser(DRIVER_VERSION);
@@ -510,6 +511,12 @@ SoapySDR::ArgInfoList SoapyIrisLocal::getSettingInfo(void) const
 
 void SoapyIrisLocal::writeSetting(const std::string &key, const std::string &value)
 {
+    if (key == "TDD_MODE")
+    {
+        if (value == "true") this->_tddMode = true;
+        if (value == "false") this->_tddMode = false;
+        return;
+    }
     return _remote->writeSetting(key, value);
 }
 

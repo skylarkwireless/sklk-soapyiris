@@ -380,7 +380,7 @@ int SoapyIrisLocal::readStream(
             if (ret < 0) return ret;
             data->readOffset = size_t(buff[0]);
             data->readElemsLeft = size_t(ret);
-            if (numRecv == 0)
+            if (_tddMode and numRecv == 0)
             {
                 int sample_count =(int)(((uint64_t)timeNs_i) & 0xFFFF);
                 //std::cout << "timeNs " << std::hex << timeNs_i << ", sample_count " << sample_count <<  std::endl;

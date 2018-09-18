@@ -380,16 +380,16 @@ int SoapyIrisLocal::readStream(
             if (ret < 0) return ret;
             data->readOffset = size_t(buff[0]);
             data->readElemsLeft = size_t(ret);
-            if (_tddMode and numRecv == 0)
+            if (_tddMode)
             {
-                int sample_count =(int)(((uint64_t)timeNs_i) & 0xFFFF);
-                //std::cout << "timeNs " << std::hex << timeNs_i << ", sample_count " << sample_count <<  std::endl;
-                if (sample_count != 0)
+                unsigned sample_count =(unsigned)(((uint64_t)timeNs_i) & 0xFFFF);
+                if (numRecv == 0 and sample_count != 0)
                 {
-                    //std::cerr << "D" << std::flush;
+                    std::cerr << "D" << std::flush;
                 }
-                //numElems -= sample_count;
-                numRecv += sample_count;
+                //std::cout << "received so far " << std::dec << sample_count + (unsigned)ret << std::endl;
+                if (sample_count + (unsigned)ret >= numElems)
+                    flags_i |= SOAPY_SDR_END_BURST;
             }
         }
 

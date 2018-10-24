@@ -380,13 +380,25 @@ int SoapyIrisLocal::readStream(
             if (ret < 0) return ret;
             data->readOffset = size_t(buff[0]);
             data->readElemsLeft = size_t(ret);
+            if (_tddMode)
+            {
+                unsigned sample_count =(unsigned)(((uint64_t)timeNs_i) & 0xFFFF);
+                if (numRecv == 0 and sample_count != 0)
+                {
+                    std::cerr << "D" << std::flush;
+                }
+                //std::cout << "received so far " << std::dec << sample_count + (unsigned)ret << std::endl;
+                if (sample_count + (unsigned)ret >= numElems)
+                    flags_i |= SOAPY_SDR_END_BURST;
+            }
         }
 
         //always put the time in from the internally tracked tick rate
         //we do this for both new buffer handles which have good ticks
         //and for remainder buffers which get the tick interpolation
         flags_i |= SOAPY_SDR_HAS_TIME;
-        timeNs_i = this->ticksToTimeNs(data->tickCount, _adcClockRate);
+        if (!_tddMode)
+            timeNs_i = this->ticksToTimeNs(data->tickCount, _adcClockRate);
 
         //convert the buffer
         void *buffsOffset[2];
@@ -412,14 +424,18 @@ int SoapyIrisLocal::readStream(
 
         eop = onePkt or (flags_i & (SOAPY_SDR_END_BURST | SOAPY_SDR_ONE_PACKET)) != 0;
         flags |= flags_i; //total set of any burst or time flags
-        if (numRecv == 0) timeNs = timeNs_i; //save first time
-
+        if (numRecv == 0) timeNs = timeNs_i; 
         numRecv += numSamples;
     } while (numRecv != numElems and not eop);
 
     //ended with fragments?
-    if (data->readElemsLeft != 0) flags |= SOAPY_SDR_MORE_FRAGMENTS;
-
+    if (data->readElemsLeft != 0)
+    { 
+        if (_tddMode)
+            data->readElemsLeft = 0;
+        else 
+            flags |= SOAPY_SDR_MORE_FRAGMENTS;
+    }
     return numRecv;
 }
 
@@ -563,7 +579,8 @@ int SoapyIrisLocal::readStreamStatus(
     data->queue.pop();
     chanMask = (data->numHostChannels == 2)?0x3:0x1;
     flags = entry.flags;
-    timeNs = this->ticksToTimeNs(entry.timeTicks, _dacClockRate);
+    if (!_tddMode)
+        timeNs = this->ticksToTimeNs(entry.timeTicks, _dacClockRate);
     return entry.ret;
 }
 
@@ -626,7 +643,7 @@ int SoapyIrisLocal::acquireReadBuffer(
     ret = 0;
 
     //detect gaps in a burst due to drops
-    if (data->inBurst && data->tickCount != timeTicks)
+    if (!_tddMode && data->inBurst && data->tickCount != timeTicks)
     {
         flags |= SOAPY_SDR_END_ABRUPT;
         std::cerr << "D" << std::flush;
@@ -635,7 +652,7 @@ int SoapyIrisLocal::acquireReadBuffer(
     }
 
     //gather time even if its not valid
-    timeNs = this->ticksToTimeNs(timeTicks, _adcClockRate);
+    timeNs = _tddMode ? timeTicks : this->ticksToTimeNs(timeTicks, _adcClockRate);
     data->tickCount = timeTicks;
 
     //error indicators
@@ -717,7 +734,7 @@ void SoapyIrisLocal::releaseWriteBuffer(
     size_t len = 0;
     bool hasTime((flags & SOAPY_SDR_HAS_TIME) != 0);
     const long long expectedTickCount = data->tickCount;
-    if (hasTime) data->tickCount = this->timeNsToTicks(timeNs, _dacClockRate);
+    if (hasTime) data->tickCount = _tddMode?timeNs:this->timeNsToTicks(timeNs, _dacClockRate);
     else if (data->inBurst and data->burstUsesTime) hasTime = true;
     const bool burstEnd((flags & SOAPY_SDR_END_BURST) != 0);
     const bool trigger((flags & SOAPY_SDR_WAIT_TRIGGER) != 0);
@@ -727,7 +744,7 @@ void SoapyIrisLocal::releaseWriteBuffer(
     {
         SoapySDR::logf(SOAPY_SDR_WARNING, "Got a timestamp in a data burst that began without a timestamp!");
     }
-    if (data->inBurst and hasTime and data->burstUsesTime and expectedTickCount != data->tickCount)
+    if (!_tddMode and data->inBurst and hasTime and data->burstUsesTime and expectedTickCount != data->tickCount)
     {
         SoapySDR::logf(SOAPY_SDR_WARNING, "Discontinuous timestamp in a burst: expected=%lld, actual=%lld", expectedTickCount, data->tickCount);
     }

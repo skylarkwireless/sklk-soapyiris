@@ -370,4 +370,5 @@ private:
     SoapySDR::Device *_remote;
     double _adcClockRate;
     double _dacClockRate;
+    bool _tddMode;
 };

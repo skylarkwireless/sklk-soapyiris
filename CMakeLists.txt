@@ -11,6 +11,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} CACHE STRING "")
 
+set(CMAKE_CXX_STANDARD 11)
+
 ########################################################################
 # gather version information
 # packagers may specify -DIRIS_EXTVER="foo" to replace the git hash
@@ -49,12 +51,6 @@ endif ()
 message(STATUS "SoapySDR_INCLUDE_DIRS: ${SoapySDR_INCLUDE_DIRS}")
 message(STATUS "SoapySDR_LIBRARIES: ${SoapySDR_LIBRARIES}")
 
-#support threaded client code
-#notice that -pthread is not the same as -lpthread
-if(CMAKE_COMPILER_IS_GNUCXX)
-    list(APPEND SoapySDR_LIBRARIES -pthread)
-endif()
-
 ########################################################################
 # companion utility
 ########################################################################
@@ -86,6 +82,12 @@ SOAPY_SDR_MODULE_UTIL(
         iris_formats.cpp
     LIBRARIES SoapyRemoteLibs
 )
+
+#support threaded client code
+#notice that -pthread is not the same as -lpthread
+if(CMAKE_COMPILER_IS_GNUCXX)
+    target_link_libraries(IrisSupport PRIVATE -pthread)
+endif()
 
 ########################################################################
 # build tests

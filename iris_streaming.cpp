@@ -293,6 +293,9 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
         data->routeEndpoints = 0x0;
         try{data->routeEndpoints = std::stoul(_remote->readSetting("ROUTE_ENDPOINTS"));}
         catch (...){SoapySDR::logf(SOAPY_SDR_ERROR, "Failed to query route endpoints");}
+        if (data->routeEndpoints != 0) SoapySDR::logf(SOAPY_SDR_INFO,
+            "Tx route: gateway[%.2x] -> dest[%.2x]",
+            data->routeEndpoints & 0xff, data->routeEndpoints >> 8);
 
         data->running = true;
         data->thread = std::thread(&IrisLocalStream::statusLoop, data.get());

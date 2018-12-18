@@ -28,6 +28,7 @@ pw $PW_OK "$self: iris flash image creation tool and sd card writer"
 
 BLOCK_SZ=4096
 FoundDrive=false
+IMG=false
 MKFS_EXT4_ARGS=""
 MKFS_VFAT_ARGS=""
 RSYNC_ARGS=""
@@ -63,6 +64,7 @@ usage() {
    echo "   -g, --gset          - set up nautilus to quit automounting"
    echo "   -d, --dev    <dev>  - use block device dev"
    echo "   -D           <dev>  - use block device dev without SD checks"
+   echo "   -i, --img    <size> - writes to .img.bz2 (e.g., for etcher)"
    echo "   -s, --swap   <size> - sets swap file size"
    echo "   -t, --tar    <file> - use image from tarball"
    echo "   -T, --tar_dir<dir>  - use image from preextracted tarball (for vomit_sd) "
@@ -139,6 +141,12 @@ cleanup() {
         rm -rf $TAR_DIR
     fi
 
+    if [ "$IMG" = true ]; then
+        pw $PW_NFO "Removing image loop device $TGT_DEV"
+        losetup -d $TGT_DEV
+        #rm $IMG_FILE
+    fi
+
     [ $# -ne 0 ] && exit $1 #someone wants exit immediately
 }
 
@@ -151,8 +159,8 @@ trap cleanup SIGINT  #call cleanup
 trap cleanup SIGTERM #call cleanup
 ################################################################################
 # Arg Parsing
-SOPTS="hfyagvd:s:D:t:T:u:"
-LOPTS="help,format-only,force-write,auto,gset,verbose,dev:,swap:,tar:,tar_dir:,update:"
+SOPTS="hfyagvd:s:D:i:t:T:u:"
+LOPTS="help,format-only,force-write,auto,gset,verbose,dev:,img:,swap:,tar:,tar_dir:,update:"
 OPTS=$(getopt -s bash --options $SOPTS --longoptions $LOPTS --name $self -- "$@")
 if [ $? -ne 0 ]; then
     pw $PW_ERR "error in parsing arguments"
@@ -197,6 +205,14 @@ while :; do
             pw $PW_ERR "$TGT_DEV is not a block device"
             exit
         fi
+        ;;
+    -i|--img)
+        shift
+        SUPER_BALLER=1
+        ForceSDWrite=true
+        IMG_SIZE=$1
+        IMG=true
+        pw "creating compressed image of size $IMG_SIZE rather than writing to sd card"
         ;;
     -f|--format-only)
         FORMAT_ONLY=1
@@ -274,6 +290,25 @@ fi
 
 SKLK_PROJ_NAME="${PROJ_BASE}_auto"
 SKLK_HW_NAME="${PROJ_BASE}_top"
+
+create_lo_dev() {
+    local img_file=$1
+    local img_size=$2
+    echo "[SKLK] Creating raw image file $img_file of size $img_size"
+    truncate -s $img_size $img_file
+    local rc=$?;
+    if [ $rc -ne 0 ]; then
+        pw $PW_ERR "creating image file $img_file of size $img_size failed!"
+        exit $rc
+    fi
+    ldev=`losetup -f`
+    local rc=$?;
+    if [ $rc -ne 0 ]; then
+        pw $PW_ERR "Cannot allocate loopback device."
+        exit $rc
+    fi
+    losetup -P $ldev $img_file #-P is important, it enables partition scans
+}
 
 partition_dev() {
     local dev=$1
@@ -549,6 +584,15 @@ create_swap_file () {
     return 0
 }
 
+# If we're writing to an image file then we setup it up and mount it as a loop
+# device, then set the target device appropriately
+if [ "$IMG" = true ]; then
+    TAR_FILENAME=$(basename -- "$TAR_FILE")
+    IMG_FILE=$TMPDIR/${TAR_FILENAME%.*.*}.img
+    create_lo_dev $IMG_FILE $IMG_SIZE
+    TGT_DEV=$ldev
+fi
+
 find_sd_card
 [ $? -ne 0 ] && pw $PW_ERR "find_sd_card failed" && exit -1
 pw $PW_DBG "find_sd_card: TGT_DEV=$TGT_DEV"
@@ -626,8 +670,15 @@ elif [ -n "$TGT_DEV" ] && [ "$UserAccepts" = true ]; then
     ############################################################################
     pw $PW_OK "$self: Filesystem activities completed!"
     cleanup #sync cache and unmount
-    eject $TGT_DEV
-    pw $PW_NFO "SD card $TGT_DEV is ready. It is safe to remove it."
+    if [ "$IMG" = true ]; then
+        pw $PW_NFO "Compressing image."
+        #pv $IMG_FILE | bzip2 > ${IMG_FILE}.bz2 #2:40, 652M
+        pv $IMG_FILE | gzip > ${IMG_FILE}.gz    #0:53, 679M (3x faster, almost same size)
+        pw $PW_NFO "Image $IMG_FILE is ready."
+    else
+        eject $TGT_DEV
+        pw $PW_NFO "SD card $TGT_DEV is ready. It is safe to remove it."
+    fi
     pw $PW_OK "$self: Done!"
 else
     pw $PW_WRN "No SD card was found, or the user cancelled flashing step."

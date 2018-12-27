@@ -1,8 +1,9 @@
 This this the changelog file for the SoapyIris project.
 
-Release 2018.10.0.1 (pending)
+Release 2018.12.0.1 (2018-12-27)
 ==========================
 
+- Added --img support for flasher script
 - TDD mode settings for streaming with TDD framer module
 
 Release 2018.08.0.1 (2018-08-28)

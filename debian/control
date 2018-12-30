@@ -1,0 +1,28 @@
+Source: soapyiris
+Section: libs
+Priority: optional
+Maintainer: Skylark Support <support@skylarkwireless.com>
+Build-Depends:
+    debhelper (>= 9.0.0),
+    cmake,
+    libsoapysdr-dev
+Standards-Version: 4.1.1
+Homepage: https://github.com/skylarkwireless/sklk-soapyiris/wiki
+Vcs-Git: https://github.com/skylarkwireless/sklk-soapyiris.git
+Vcs-Browser: https://github.com/skylarkwireless/sklk-soapyiris
+
+Package: soapysdr0.7-module-iris
+Architecture: any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Soapy Iris - Iris device support for Soapy SDR.
+ A Soapy module that supports Iris devices within the Soapy API.
+
+Package: soapysdr-module-iris
+Architecture: all
+Depends: soapysdr0.7-module-iris, ${misc:Depends}
+Description: Soapy Iris - Iris device support for Soapy SDR.
+ A Soapy module that supports Iris devices within the Soapy API.
+ .
+ This is an empty dependency package that pulls in the Iris module
+ for the default version of libsoapysdr.

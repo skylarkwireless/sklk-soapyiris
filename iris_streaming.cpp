@@ -67,6 +67,7 @@ struct IrisLocalStream
     SoapySDR::Stream *remoteStream;
     SoapyRPCSocket sock;
     int direction;
+    unsigned routeEndpoints;
     StreamFormat format; //!< requested stream format
     char buff[2048];
 
@@ -288,6 +289,14 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
 
     if (direction == SOAPY_SDR_TX)
     {
+        //route info used to route packets through hub
+        data->routeEndpoints = 0x0;
+        try{data->routeEndpoints = std::stoul(_remote->readSetting("ROUTE_ENDPOINTS"));}
+        catch (...){SoapySDR::logf(SOAPY_SDR_ERROR, "Failed to query route endpoints");}
+        if (data->routeEndpoints != 0) SoapySDR::logf(SOAPY_SDR_INFO,
+            "Tx route: gateway[%.2x] -> dest[%.2x]",
+            data->routeEndpoints & 0xff, data->routeEndpoints >> 8);
+
         data->running = true;
         data->thread = std::thread(&IrisLocalStream::statusLoop, data.get());
     }
@@ -755,7 +764,8 @@ void SoapyIrisLocal::releaseWriteBuffer(
     //packer logic for twbw_tx_deframer64
     auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
     hdr64[0] = (uint64_t(numElems-1) & 0xffff) |
-                (uint64_t(data->nextSeqSend++) & 0xffff) << 32;
+               ((uint64_t(data->nextSeqSend++) & 0xffff) << 32) |
+               (uint64_t(data->routeEndpoints) << 48);
     if (hasTime)    hdr64[0] |= (uint64_t(1) << 31);
     if (burstEnd)   hdr64[0] |= (uint64_t(1) << 28);
     if (trigger)    hdr64[0] |= (uint64_t(1) << 26);

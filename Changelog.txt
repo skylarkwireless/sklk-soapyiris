@@ -1,5 +1,10 @@
 This this the changelog file for the SoapyIris project.
 
+Release 2019.01.0.1 (pending)
+==========================
+
+- Embed a route into the Tx packet header for hub support
+
 Release 2018.12.0.1 (2018-12-27)
 ==========================
 

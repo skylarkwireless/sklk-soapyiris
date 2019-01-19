@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Skylark Wireless LLC
+// Copyright (c) 2017-2019 Skylark Wireless LLC
 // SPDX-License-Identifier: BSD-3-Clause
 
 //-------------------------------------------------------------
@@ -69,7 +69,7 @@ struct IrisLocalStream
     int direction;
     unsigned routeEndpoints;
     StreamFormat format; //!< requested stream format
-    char buff[2048];
+    char buff[8*1024];
 
     size_t bytesPerElement;
     size_t numHostChannels;

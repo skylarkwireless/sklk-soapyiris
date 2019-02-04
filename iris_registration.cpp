@@ -1,5 +1,9 @@
-// Copyright (c) 2017-2018 Skylark Wireless LLC
+// Copyright (c) 2017-2019 Skylark Wireless LLC
 // SPDX-License-Identifier: BSD-3-Clause
+
+//default timeout in microseconds to allow for discovery and tcp connections
+//it can be changed by passing the timeout keyword to the device arguments
+#define DEFAULT_TIMEOUT_US 300000
 
 //-------------------------------------------------------------
 //-- Device discovery and factory
@@ -9,7 +13,7 @@
 #include <SoapySDR/Registry.hpp>
 #include <SoapySDR/Logger.hpp>
 
-static SoapySDR::Kwargs modifyArgs(SoapySDR::Kwargs args, const long timeoutUs = -1)
+static SoapySDR::Kwargs modifyArgs(SoapySDR::Kwargs args, const long timeoutUs = DEFAULT_TIMEOUT_US)
 {
     //using soapyremote for settings, set typical driver filters for iris here
     args["show"] = "1"; //needed to enable discovery on iris-arm remote module

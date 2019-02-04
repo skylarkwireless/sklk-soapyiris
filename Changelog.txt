@@ -3,6 +3,7 @@ This this the changelog file for the SoapyIris project.
 Release 2019.01.0.1 (pending)
 ==========================
 
+- Increased the default discovery timeout to 300 us
 - Increase stream buffer to support 8kib jumbo packets
 - Embed a route into the Tx packet header for hub support
 

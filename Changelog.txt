@@ -1,6 +1,6 @@
 This this the changelog file for the SoapyIris project.
 
-Release 2019.01.0.1 (pending)
+Release 2019.01.0.1 (2019-02-04)
 ==========================
 
 - Increased the default discovery timeout to 300 us

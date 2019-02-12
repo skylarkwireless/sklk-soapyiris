@@ -394,7 +394,7 @@ int SoapyIrisLocal::readStream(
                 unsigned sample_count =(unsigned)(((uint64_t)timeNs_i) & 0xFFFF);
                 if (numRecv == 0 and sample_count != 0)
                 {
-                    std::cerr << "D" << std::flush;
+                    SoapySDR::log(SOAPY_SDR_SSI, "D");
                 }
                 //std::cout << "received so far " << std::dec << sample_count + (unsigned)ret << std::endl;
                 if (sample_count + (unsigned)ret >= numElems)
@@ -553,9 +553,9 @@ void IrisLocalStream::statusLoop(void)
         //enqueue status messages
         if (hasStatus or seqError)
         {
-            if (underflow) std::cerr << "U" << std::flush;
-            if (timeError) std::cerr << "T" << std::flush;
-            if (seqError) std::cerr << "S" << std::flush;
+            if (underflow) SoapySDR::log(SOAPY_SDR_SSI, "U");
+            if (timeError) SoapySDR::log(SOAPY_SDR_SSI, "T");
+            if (seqError) SoapySDR::log(SOAPY_SDR_SSI, "S");
             std::lock_guard<std::mutex> lock(this->mutex);
             //constrain max queue size (if user isnt reading stream status)
             if (this->queue.size() > MAX_TX_STATUS_DEPTH) this->queue.pop();
@@ -655,7 +655,7 @@ int SoapyIrisLocal::acquireReadBuffer(
     if (!_tddMode && data->inBurst && data->tickCount != timeTicks)
     {
         flags |= SOAPY_SDR_END_ABRUPT;
-        std::cerr << "D" << std::flush;
+        SoapySDR::log(SOAPY_SDR_SSI, "D");
         //std::cout << "\nDBG overflow " << data->packetCount << "\n\t"
         //    << "expected: " << data->tickCount << ", but got " << timeTicks << std::endl;
     }
@@ -673,14 +673,14 @@ int SoapyIrisLocal::acquireReadBuffer(
     //a bad time was specified in the command packet
     else if (timeError)
     {
-        std::cerr << "L" << std::flush;
+        SoapySDR::log(SOAPY_SDR_SSI, "L");
         ret = SOAPY_SDR_TIME_ERROR;
     }
 
     //otherwise the error was an overflow
     else if (overflow)
     {
-        std::cerr << "O" << std::flush;
+        SoapySDR::log(SOAPY_SDR_SSI, "O");
         ret = SOAPY_SDR_OVERFLOW;
     }
 

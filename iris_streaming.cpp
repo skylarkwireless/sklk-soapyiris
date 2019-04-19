@@ -389,6 +389,7 @@ int SoapyIrisLocal::readStream(
             if (ret < 0) return ret;
             data->readOffset = size_t(buff[0]);
             data->readElemsLeft = size_t(ret);
+            /*
             if (_tddMode)
             {
                 unsigned sample_count =(unsigned)(((uint64_t)timeNs_i) & 0xFFFF);
@@ -400,6 +401,7 @@ int SoapyIrisLocal::readStream(
                 if (sample_count + (unsigned)ret >= numElems)
                     flags_i |= SOAPY_SDR_END_BURST;
             }
+            */
         }
 
         //always put the time in from the internally tracked tick rate
@@ -718,7 +720,7 @@ int SoapyIrisLocal::acquireWriteBuffer(
 
     //ran out of sequences, wait for response
     auto ready = [data]{return uint16_t(data->nextSeqSend-data->lastSeqRecv) < data->windowSize;};
-    if (not ready()) //first check without locking, we only lock when backing up completely
+    if (not _tddMode and not ready()) //first check without locking, we only lock when backing up completely
     {
         std::unique_lock<std::mutex> lock(data->mutex);
         if (not data->cond.wait_for(lock, std::chrono::microseconds(timeoutUs), ready)) return SOAPY_SDR_TIMEOUT;
@@ -767,6 +769,8 @@ void SoapyIrisLocal::releaseWriteBuffer(
                ((uint64_t(data->nextSeqSend++) & 0xffff) << 32) |
                (uint64_t(data->routeEndpoints) << 48);
     if (hasTime)    hdr64[0] |= (uint64_t(1) << 31);
+    //TODO mode flag 30 for symbol > 0 within a subframe
+    if (_tddMode)   hdr64[0] |= (uint64_t(1) << 29);
     if (burstEnd)   hdr64[0] |= (uint64_t(1) << 28);
     if (trigger)    hdr64[0] |= (uint64_t(1) << 26);
     if (seqRequest) hdr64[0] |= (uint64_t(1) << 25);

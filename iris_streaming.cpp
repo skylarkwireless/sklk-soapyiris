@@ -371,6 +371,7 @@ int SoapyIrisLocal::readStream(
 
     const bool onePkt = (flags & SOAPY_SDR_ONE_PACKET) != 0;
     bool eop = false;
+    const int flags_in = flags;
     flags = 0; //clear
 
     size_t numRecv = 0;
@@ -389,8 +390,7 @@ int SoapyIrisLocal::readStream(
             if (ret < 0) return ret;
             data->readOffset = size_t(buff[0]);
             data->readElemsLeft = size_t(ret);
-            /*
-            if (_tddMode)
+            if (_tddMode and (flags_in & (1 << 29)) == 0/*reuse fft flag to shut this off*/)
             {
                 unsigned sample_count =(unsigned)(((uint64_t)timeNs_i) & 0xFFFF);
                 if (numRecv == 0 and sample_count != 0)
@@ -401,7 +401,6 @@ int SoapyIrisLocal::readStream(
                 if (sample_count + (unsigned)ret >= numElems)
                     flags_i |= SOAPY_SDR_END_BURST;
             }
-            */
         }
 
         //always put the time in from the internally tracked tick rate
@@ -761,16 +760,15 @@ void SoapyIrisLocal::releaseWriteBuffer(
     }
 
     //request sequence packets once in a while with this metric
-    const bool seqRequest = (data->nextSeqSend)%(data->windowSize/8) == 0;
+    const bool seqRequest = (data->nextSeqSend)%(data->windowSize/8) == 0 and not _tddMode;
 
     //packer logic for twbw_tx_deframer64
     auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
     hdr64[0] = (uint64_t(numElems-1) & 0xffff) |
+               (uint64_t(flags & 0xffff0000))  | //re-purpose upper bits of flags
                ((uint64_t(data->nextSeqSend++) & 0xffff) << 32) |
                (uint64_t(data->routeEndpoints) << 48);
     if (hasTime)    hdr64[0] |= (uint64_t(1) << 31);
-    //TODO mode flag 30 for symbol > 0 within a subframe
-    if (_tddMode)   hdr64[0] |= (uint64_t(1) << 29);
     if (burstEnd)   hdr64[0] |= (uint64_t(1) << 28);
     if (trigger)    hdr64[0] |= (uint64_t(1) << 26);
     if (seqRequest) hdr64[0] |= (uint64_t(1) << 25);

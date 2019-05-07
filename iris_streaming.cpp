@@ -528,6 +528,7 @@ void IrisLocalStream::statusLoop(void)
         const bool timeError    = hasStatus and (buff[1] & (1 << 20)) != 0;
         const bool underflow    = hasStatus and (buff[1] & (1 << 21)) != 0;
         const bool burstEnd     = hasStatus and (buff[1] & (1 << 22)) != 0;
+        const bool overflow     = hasStatus and (buff[1] & (1 << 23)) != 0;
         /*std::cout << "got stat ret = " << std::dec << ret << std::endl;
         std::cout << "buff[0] " << std::hex << buff[0] << std::endl;
         std::cout << "buff[1] " << std::hex << buff[1] << std::endl;
@@ -549,12 +550,14 @@ void IrisLocalStream::statusLoop(void)
         if (burstEnd) entry.flags |= SOAPY_SDR_END_BURST;
         if (timeError) entry.ret = SOAPY_SDR_TIME_ERROR;
         if (underflow) entry.ret = SOAPY_SDR_UNDERFLOW;
+        if (overflow) entry.ret = SOAPY_SDR_OVERFLOW;
         if (seqError) entry.ret = SOAPY_SDR_CORRUPTION;
 
         //enqueue status messages
         if (hasStatus or seqError)
         {
             if (underflow) SoapySDR::log(SOAPY_SDR_SSI, "U");
+            if (overflow) SoapySDR::log(SOAPY_SDR_SSI, "O");
             if (timeError) SoapySDR::log(SOAPY_SDR_SSI, "T");
             if (seqError) SoapySDR::log(SOAPY_SDR_SSI, "S");
             std::lock_guard<std::mutex> lock(this->mutex);

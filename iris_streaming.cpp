@@ -371,6 +371,7 @@ int SoapyIrisLocal::readStream(
 
     const bool onePkt = (flags & SOAPY_SDR_ONE_PACKET) != 0;
     bool eop = false;
+    const int flags_in = flags;
     flags = 0; //clear
 
     size_t numRecv = 0;
@@ -389,7 +390,7 @@ int SoapyIrisLocal::readStream(
             if (ret < 0) return ret;
             data->readOffset = size_t(buff[0]);
             data->readElemsLeft = size_t(ret);
-            if (_tddMode)
+            if (_tddMode and (flags_in & (1 << 29)) == 0/*reuse fft flag to shut this off*/)
             {
                 unsigned sample_count =(unsigned)(((uint64_t)timeNs_i) & 0xFFFF);
                 if (numRecv == 0 and sample_count != 0)
@@ -527,6 +528,7 @@ void IrisLocalStream::statusLoop(void)
         const bool timeError    = hasStatus and (buff[1] & (1 << 20)) != 0;
         const bool underflow    = hasStatus and (buff[1] & (1 << 21)) != 0;
         const bool burstEnd     = hasStatus and (buff[1] & (1 << 22)) != 0;
+        const bool overflow     = hasStatus and (buff[1] & (1 << 23)) != 0;
         /*std::cout << "got stat ret = " << std::dec << ret << std::endl;
         std::cout << "buff[0] " << std::hex << buff[0] << std::endl;
         std::cout << "buff[1] " << std::hex << buff[1] << std::endl;
@@ -548,12 +550,14 @@ void IrisLocalStream::statusLoop(void)
         if (burstEnd) entry.flags |= SOAPY_SDR_END_BURST;
         if (timeError) entry.ret = SOAPY_SDR_TIME_ERROR;
         if (underflow) entry.ret = SOAPY_SDR_UNDERFLOW;
+        if (overflow) entry.ret = SOAPY_SDR_OVERFLOW;
         if (seqError) entry.ret = SOAPY_SDR_CORRUPTION;
 
         //enqueue status messages
         if (hasStatus or seqError)
         {
             if (underflow) SoapySDR::log(SOAPY_SDR_SSI, "U");
+            if (overflow) SoapySDR::log(SOAPY_SDR_SSI, "O");
             if (timeError) SoapySDR::log(SOAPY_SDR_SSI, "T");
             if (seqError) SoapySDR::log(SOAPY_SDR_SSI, "S");
             std::lock_guard<std::mutex> lock(this->mutex);
@@ -718,7 +722,7 @@ int SoapyIrisLocal::acquireWriteBuffer(
 
     //ran out of sequences, wait for response
     auto ready = [data]{return uint16_t(data->nextSeqSend-data->lastSeqRecv) < data->windowSize;};
-    if (not ready()) //first check without locking, we only lock when backing up completely
+    if (not _tddMode and not ready()) //first check without locking, we only lock when backing up completely
     {
         std::unique_lock<std::mutex> lock(data->mutex);
         if (not data->cond.wait_for(lock, std::chrono::microseconds(timeoutUs), ready)) return SOAPY_SDR_TIMEOUT;
@@ -759,11 +763,12 @@ void SoapyIrisLocal::releaseWriteBuffer(
     }
 
     //request sequence packets once in a while with this metric
-    const bool seqRequest = (data->nextSeqSend)%(data->windowSize/8) == 0;
+    const bool seqRequest = (data->nextSeqSend)%(data->windowSize/8) == 0 and not _tddMode;
 
     //packer logic for twbw_tx_deframer64
     auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
     hdr64[0] = (uint64_t(numElems-1) & 0xffff) |
+               (uint64_t(flags & 0xffff0000))  | //re-purpose upper bits of flags
                ((uint64_t(data->nextSeqSend++) & 0xffff) << 32) |
                (uint64_t(data->routeEndpoints) << 48);
     if (hasTime)    hdr64[0] |= (uint64_t(1) << 31);

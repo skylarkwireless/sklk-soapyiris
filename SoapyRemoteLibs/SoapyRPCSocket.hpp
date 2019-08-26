@@ -155,6 +155,8 @@ public:
      */
     int getBuffSize(const bool isRecv);
 
+    int setPriority(const int prio);
+
 private:
     int _sock;
     std::string _lastErrorMsg;

@@ -8,6 +8,7 @@ Release 2019.07.0.1 (pending)
   - arbitrary transmit flags
   - ttd disables tx flow control
 - Switch to SoapySDR logger for stream status indicators
+- Added support for setting SO_PRIORITY on tx sockets
 
 Release 2019.01.0.1 (2019-02-04)
 ==========================

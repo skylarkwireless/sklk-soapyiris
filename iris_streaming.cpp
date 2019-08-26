@@ -144,6 +144,17 @@ SoapySDR::ArgInfoList SoapyIrisLocal::getStreamArgsInfo(const int direction, con
         infos.push_back(info);
     }
 
+    {
+        SoapySDR::ArgInfo info;
+        info.key = "SO_PRIORITY";
+        info.name = "Socket send priority";
+        info.type = SoapySDR::ArgInfo::INT;
+        info.value = std::to_string(0);
+        info.range = SoapySDR::Range(0, 10, 1);
+        info.description = "Increase the priority of transmit data";
+        infos.push_back(info);
+    }
+
     //use remote infos that come from the driver itself
     //and filter out remote: from soapy remote (not applicable)
     for (const auto &info : _remote->getStreamArgsInfo(direction, channel))
@@ -299,6 +310,13 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
 
         data->running = true;
         data->thread = std::thread(&IrisLocalStream::statusLoop, data.get());
+    }
+
+    if (_args.count("SO_PRIORITY"))
+    {
+        ret = data->sock.setPriority(std::stoi(_args.at("SO_PRIORITY")));
+        if (ret == -1) SoapySDR::logf(SOAPY_SDR_WARNING,
+            "Failed to set socket priority: %s", data->sock.lastErrorMsg());
     }
 
     //set tx socket buffer size to match the buffering in the iris

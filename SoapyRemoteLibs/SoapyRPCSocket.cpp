@@ -527,3 +527,11 @@ int SoapyRPCSocket::getBuffSize(const bool isRecv)
 
     return opt;
 }
+
+int SoapyRPCSocket::setPriority(const int priority)
+{
+    int opt = priority;
+    int ret = ::setsockopt(_sock, SOL_SOCKET, SO_PRIORITY, (const char *)&opt, sizeof(opt));
+    if (ret == -1) this->reportError("setsockopt(SO_PRIORITY)");
+    return ret;
+}

@@ -18,7 +18,7 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
-#include <queue>
+#include <deque>
 #include <future>
 #include <algorithm> //find
 #include <condition_variable>
@@ -95,7 +95,7 @@ struct IrisLocalStream
     std::condition_variable cond;
     std::thread thread;
     std::atomic<bool> running;
-    std::queue<StreamStatusEntry> queue;
+    std::deque<StreamStatusEntry> queue;
     void statusLoop(void);
 
     //async activate support
@@ -527,7 +527,7 @@ void IrisLocalStream::statusLoop(void)
         {
             {
                 std::lock_guard<std::mutex> lock(this->mutex);
-                this->queue.emplace(SOAPY_SDR_STREAM_ERROR);
+                this->queue.emplace_back(SOAPY_SDR_STREAM_ERROR);
             }
             this->cond.notify_all();
             return;
@@ -580,8 +580,8 @@ void IrisLocalStream::statusLoop(void)
             if (seqError) SoapySDR::log(SOAPY_SDR_SSI, "S");
             std::lock_guard<std::mutex> lock(this->mutex);
             //constrain max queue size (if user isnt reading stream status)
-            if (this->queue.size() > MAX_TX_STATUS_DEPTH) this->queue.pop();
-            this->queue.push(entry);
+            if (this->queue.size() > MAX_TX_STATUS_DEPTH) this->queue.pop_front();
+            this->queue.push_back(entry);
         }
 
         //notify any waiters for sequence or status message
@@ -607,11 +607,10 @@ int SoapyIrisLocal::readStreamStatus(
 
     //copy queue entry into the output fields
     auto entry = data->queue.front();
-    data->queue.pop();
+    data->queue.pop_front();
     chanMask = (data->numHostChannels == 2)?0x3:0x1;
     flags = entry.flags;
-    if (!_tddMode)
-        timeNs = this->ticksToTimeNs(entry.timeTicks, _dacClockRate);
+    timeNs = _tddMode?entry.timeTicks:this->ticksToTimeNs(entry.timeTicks, _dacClockRate);
     return entry.ret;
 }
 

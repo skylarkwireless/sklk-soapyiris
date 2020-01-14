@@ -69,7 +69,7 @@ struct IrisLocalStream
     int direction;
     unsigned routeEndpoints;
     StreamFormat format; //!< requested stream format
-    char buff[8*1024];
+    uint64_t buff[1024];
 
     size_t bytesPerElement;
     size_t numHostChannels;
@@ -622,7 +622,7 @@ size_t SoapyIrisLocal::getNumDirectAccessBuffers(SoapySDR::Stream *)
 int SoapyIrisLocal::getDirectAccessBufferAddrs(SoapySDR::Stream *stream, const size_t /*handle*/, void **buffs)
 {
     auto data = (IrisLocalStream *)stream;
-    buffs[0] = data->buff + (sizeof(uint64_t)*2);
+    buffs[0] = data->buff + 2;
     return 0;
 }
 
@@ -645,7 +645,7 @@ int SoapyIrisLocal::acquireReadBuffer(
     if (ret < 0) return SOAPY_SDR_STREAM_ERROR;
 
     //unpacker logic for twbw_rx_framer64
-    const auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
+    const auto *hdr64 = data->buff;
     //std::cout << "===========================================\n";
     //std::cout << "read udp ret = " << std::dec << ret << std::endl;
     //std::cout << "hdr0 " << std::hex << hdr64[0] << std::endl;
@@ -783,7 +783,7 @@ void SoapyIrisLocal::releaseWriteBuffer(
     const bool seqRequest = (data->nextSeqSend)%(data->windowSize/8) == 0 and not _tddMode;
 
     //packer logic for twbw_tx_deframer64
-    auto hdr64 = reinterpret_cast<uint64_t *>(data->buff);
+    auto *hdr64 = data->buff;
     hdr64[0] = (uint64_t(numElems-1) & 0xffff) |
                (uint64_t(flags & 0xffff0000))  | //re-purpose upper bits of flags
                ((uint64_t(data->nextSeqSend++) & 0xffff) << 32) |

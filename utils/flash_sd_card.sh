@@ -1,8 +1,7 @@
 #!/bin/bash
 #
-#   This script formats and writes a SD card from an skylark provided tar ball.
-#   Use with caution and select the path to the device node carefully.
-#   Usage: sudo ./flash_sd_card.sh -t path/to/iris030_rootfs_2018-version.tar.gz
+#   Helper script for the Iris automated build toolchain. This script is not meant to be run
+#   directly. See README.txt for instructions.
 #
 #   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
 #   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
@@ -12,18 +11,18 @@
 #   DEALINGS IN THE SOFTWARE.
 #
 #   (c) info@skylarkwireless.com 2016
-#   SPDX-License-Identifier: BSD-3-Clause
 
 TMPDIR=/tmp
 
-THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+AUTO_HW="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SKLK_SRC=$(readlink -f "${AUTO_HW}/..")
 
 # Don't touch any drive that is larger than then below size. This is
 # a safety feature to keep you from doing bad things to your drives.
 MAX_BLK_SIZE=$((1024 * 1024 * 1024 * 16)) #8GiB - protection level
 ISO_BLK_SIZE=$((1024 * 1024 * 1024 * 2 )) #2GiB - sets size of image
 
-. ${THIS_DIR}/banner #add pw functionality
+. ${SKLK_SRC}/utils/banner #add pw functionality
 pw $PW_OK "$self: iris flash image creation tool and sd card writer"
 
 BLOCK_SZ=4096
@@ -47,6 +46,8 @@ TAR_DIR=""
 BOOT_BIN=""
 FORMAT_ONLY=""
 NO_CUSTOM=""
+OLD_FW=false
+SKLK_BUILD="iris030"
 
 self=$(basename $0)
 usage() {
@@ -61,10 +62,12 @@ usage() {
    echo "   -h, --help          - display usage"
    echo "   -v, --verbose       - more info"
    echo "   -a, --auto          - find sd card and use it"
+   echo "   -b, --build  <bld>  - build to use (e.g.: iris030, iris030_rrh, iris030_ue, faroshub04b)"
    echo "   -g, --gset          - set up nautilus to quit automounting"
    echo "   -d, --dev    <dev>  - use block device dev"
    echo "   -D           <dev>  - use block device dev without SD checks"
-   echo "   -i, --img    <size> - writes to .img.bz2 (e.g., for etcher)"
+   echo "   -i, --img    <size> - writes to .img.gz (e.g., for etcher)"
+   echo "   -o,                 - suppress output (e.g., for logging)"
    echo "   -s, --swap   <size> - sets swap file size"
    echo "   -t, --tar    <file> - use image from tarball"
    echo "   -T, --tar_dir<dir>  - use image from preextracted tarball (for vomit_sd) "
@@ -159,8 +162,8 @@ trap cleanup SIGINT  #call cleanup
 trap cleanup SIGTERM #call cleanup
 ################################################################################
 # Arg Parsing
-SOPTS="hfyagvd:s:D:i:t:T:u:"
-LOPTS="help,format-only,force-write,auto,gset,verbose,dev:,img:,swap:,tar:,tar_dir:,update:"
+SOPTS="hfoyab:gvd:s:D:i:t:T:u:"
+LOPTS="help,format-only,force-write,auto,build:,gset,verbose,dev:,img:,swap:,tar:,tar_dir:,update:"
 OPTS=$(getopt -s bash --options $SOPTS --longoptions $LOPTS --name $self -- "$@")
 if [ $? -ne 0 ]; then
     pw $PW_ERR "error in parsing arguments"
@@ -175,8 +178,13 @@ while :; do
         exit 0
         ;;
     -s|--swap)
+        shift
         SWAP_SZ=$1
         pw $PW_NFO "setting swap size to $SWAP_SZ"
+        ;;
+    -o)
+        RSYNC_ARGS=""
+        pw $PW_NFO "disabling rsync progress"
         ;;
     -y|--force-write)
         pw $PW_WRN "bypassing safety prompts, baller"
@@ -187,6 +195,11 @@ while :; do
     -a|--auto)
         pw $PW_NFO "running auto scan for sd card"
         SD_AUTO=1
+        ;;
+    -b|--build)
+        shift
+        SKLK_BUILD=$1
+        pw $PW_NFO "using $1 build"
         ;;
     -v|--verbose)
         dbg=1
@@ -338,7 +351,8 @@ partition_dev() {
     # line terminated with a newline to take the fdisk default.
     # Note: you can't have leading white space on the EOF line,
     #       hence the crappy formatting.
-    sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk $dev
+    if [ "$OLD_FW" = true ]; then
+        sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk $dev
 o # clear the in memory partition table
 n # new partition
 p # primary partition
@@ -367,6 +381,24 @@ p # print the in-memory partition table
 w # write the partition table
 q # and we're done
 EOF
+    else
+        sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk $dev
+o # clear the in memory partition table
+n # new partition
+p # primary partition
+1 # partition number 1
+# default - start at beginning of disk
+# default, extend partition to end of disk
+t # set partition type
+#default
+b # vfat
+a # make a partition bootable
+#1 #only one partition, so this input isn't needed # bootable partition is partition 1 -- /dev/sda1
+p # print the in-memory partition table
+w # write the partition table
+q # and we're done
+EOF
+    fi
     local rc=$?; #fdisk
     if [ $rc -ne 0 ]; then
         pw $PW_ERR "fdisk $dev fail($rc)"
@@ -382,7 +414,8 @@ partition_wait() {
 
     while [[ $timeout -ne 0 ]]; do
         num_devs=$(ls ${dev}* | wc -l)
-        [ $num_devs -eq 4 ] && break
+        [ $num_devs -eq 2 -a "$OLD_FW" = false ] && break
+        [ $num_devs -eq 4 -a "$OLD_FW" = true ] && break
         sleep 1
         timeout=$((timeout - 1))
     done
@@ -437,8 +470,10 @@ check_partitions(){
     fi
 
     pw $PW_DBG "File system vfat (boot partition): $TGT_DEV_BOOT"
-    pw $PW_DBG "File system swap: $TGT_DEV_SWAP"
-    pw $PW_DBG "File system ext4 (linaro fs): $TGT_DEV_ROOT"
+    if [ "$OLD_FW" = true ]; then
+        pw $PW_DBG "File system swap: $TGT_DEV_SWAP"
+        pw $PW_DBG "File system ext4 (linaro fs): $TGT_DEV_ROOT"
+    fi
 }
 
 format_dev(){
@@ -452,15 +487,17 @@ format_dev(){
     rc=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mkfs($rc)" && exit $rc
     sync -f $TGT_DEV_BOOT
 
-    pw $PW_DBG "Formatting swap: $TGT_DEV_SWAP"
-    mkswap $TGT_DEV_SWAP
-    rc=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mkswap($rc)" && exit $rc
-    sync -f $TGT_DEV_SWAP
+    if [ "$OLD_FW" = true ]; then
+        pw $PW_DBG "Formatting swap: $TGT_DEV_SWAP"
+        mkswap $TGT_DEV_SWAP
+        rc=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mkswap($rc)" && exit $rc
+        sync -f $TGT_DEV_SWAP
 
-    pw $PW_DBG "Formatting ext4 (linaro fs): $TGT_DEV_ROOT"
-    mkfs.ext4 $MKFS_EXT4_ARGS -L ROOT_FS $TGT_DEV_ROOT
-    rc=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mkfs($rc)" && exit $rc
-    sync -f $TGT_DEV_ROOT
+        pw $PW_DBG "Formatting ext4 (linaro fs): $TGT_DEV_ROOT"
+        mkfs.ext4 $MKFS_EXT4_ARGS -L ROOT_FS $TGT_DEV_ROOT
+        rc=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mkfs($rc)" && exit $rc
+        sync -f $TGT_DEV_ROOT
+    fi
 
     pw $PW_NFO "Formatted $dev successfully"
 }
@@ -474,10 +511,11 @@ mount_dev() {
     mount $MNT_BOOT_ARGS "$TGT_DEV_BOOT" $MNT_BOOT
     rc=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mount($rc) $MNT_BOOT" && exit $rc
 
-    MNT_ROOT=$(mktemp --tmpdir -d ZED_ROOT.XXXX)
-    mount $MNT_ROOT_ARGS "$TGT_DEV_ROOT" $MNT_ROOT
-    ac=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mount($rc) $MNT_ROOT" && exit $rc
-
+    if [ "$OLD_FW" = true ]; then
+        MNT_ROOT=$(mktemp --tmpdir -d ZED_ROOT.XXXX)
+        mount $MNT_ROOT_ARGS "$TGT_DEV_ROOT" $MNT_ROOT
+        ac=$?; [ $rc -ne 0 ] && pw $PW_ERR "failed to mount($rc) $MNT_ROOT" && exit $rc
+    fi
     pw $PW_NFO "Mounted $dev successfully"
 }
 
@@ -630,6 +668,34 @@ if [ -n "$TGT_DEV" ] && [ "$UserAccepts" = true ] && [ ! -z $BOOT_BIN ]; then
 
 # If a drive was found, partition it, format it, and copy over desired files
 elif [ -n "$TGT_DEV" ] && [ "$UserAccepts" = true ]; then
+    #cws: moved this here so we can check if it is a new image format or not first
+    #this could be a bit cleaner, it uses known, hardcoded, file names to detect fw version
+    #or if it is just a tar with a image.ub and BOOT.BIN
+    if [[ ! -z $TAR_FILE ]]; then
+        pw $PW_NFO "Extracting image from $TAR_FILE"
+        TAR_DIR=$(mktemp --tmpdir -d ZED.XXXX)
+        tar -xzf $TAR_FILE -C $TAR_DIR
+    fi
+    if [ -d "$TAR_DIR/root" ]; then
+        pw $PW_NFO "Old FW format found! Will make a separate root partition and copy rootfs..."
+        OLD_FW=true
+    elif [ -f "$TAR_DIR/BOOT.BIN" ] && [ -f "$TAR_DIR/image.ub" ]; then
+        pw $PW_NFO "image.ub and BOOT.BIN directly in provided tar.  Ignoring build type and assuming rootfs included in image.ub..."
+        mkdir $TAR_DIR/boot
+        cp $TAR_DIR/BOOT.BIN $TAR_DIR/image.ub $TAR_DIR/boot
+    elif ls $TAR_DIR/bootfiles-$SKLK_BUILD-*.tar.gz 1> /dev/null 2>&1; then
+        pw $PW_NFO "New image detected, using $SKLK_BUILD:"
+        pw $PW_NFO `ls $TAR_DIR/bootfiles-$SKLK_BUILD-*.tar.gz`
+        mkdir $TAR_DIR/boot
+        tar -xzf $TAR_DIR/bootfiles-$SKLK_BUILD-*.tar.gz -C $TAR_DIR/boot
+    else
+        pw $PW_ERR "Unknown tar file format, or unkown build: $SKLK_BUILD"
+        exit -1
+    fi
+
+    #TODO: if new firmware and partition is already fat, then mount it and just copy
+    #image.ub and BOOT.BIN (and check/set bootable flag), then skip all this
+
     pw $PW_DBG "Unmounting any partitions on: $TGT_DEV"
     # make sure everything is un-mounted first
     for targ in $(ls ${TGT_DEV}*); do
@@ -649,23 +715,18 @@ elif [ -n "$TGT_DEV" ] && [ "$UserAccepts" = true ]; then
     [[ $FORMAT_ONLY -eq 1 ]] && cleanup
     [[ $FORMAT_ONLY -eq 1 ]] && exit 0
 
-    if [[ ! -z $TAR_FILE ]]; then
-        pw $PW_NFO "Extracting image from $TAR_FILE"
-        TAR_DIR=$(mktemp --tmpdir -d ZED.XXXX)
-        tar -xzf $TAR_FILE -C $TAR_DIR
-    fi
-
     pw $PW_NFO "Copying $TAR_DIR to $TGT_DEV"
     safe_cp $TAR_DIR/boot/ $MNT_BOOT/ -vrc
-    safe_cp $TAR_DIR/root/ $MNT_ROOT/ -a --keep-dirlinks
-
+    if [ "$OLD_FW" = true ]; then
+        safe_cp $TAR_DIR/root/ $MNT_ROOT/ -a --keep-dirlinks
+    fi
     #create a swap file in case of large compiles. TODO: convert to partition
     #create_swap_file $SWAP_SZ $MNT_ROOT #Now using partition
     #echo "/dev/mmcblk0p2 none swap sw 0 0" >> $froot/etc/fstab #swap partition
     #note that swap file vs. partition requires changes here, the fdisk script,
     #the rootfs (mmcblk0p2->mmcblk0p3) in src/linux.config, the prepare_img.sh
     #(for fstab), and the mkfs (below), and the part timeout devs from 3 to 4
-    [ $? -ne 0 ] && pw $PW_WRN "swap file allocation failed"
+    #[ $? -ne 0 ] && pw $PW_WRN "swap file allocation failed"
 
     ############################################################################
     pw $PW_OK "$self: Filesystem activities completed!"
@@ -699,5 +760,5 @@ else
     echo "[SKLK]"
     echo "[SKLK]          To add to this list, report to: info@skylarkwireless.com"
     pw $PW_ERR "Exiting"
-    exit
+    exit -1
 fi #Found an SD card to Flash.

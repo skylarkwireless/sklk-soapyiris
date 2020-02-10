@@ -1,8 +1,9 @@
 This this the changelog file for the SoapyIris project.
 
-Release 2019.07.0.1 (pending)
+Release 2020.02.0.1 (2020-02-10)
 ==========================
 
+- Buffer alignment for DMA calls
 - Support FFT enabled RF core:
   - async overflow reporting
   - arbitrary transmit flags

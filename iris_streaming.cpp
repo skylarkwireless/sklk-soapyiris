@@ -65,7 +65,7 @@ struct StreamStatusEntry
 struct IrisLocalStream
 {
     SoapySDR::Stream *remoteStream;
-    SoapyRPCSocket sock;
+    sklk_SoapyRPCSocket sock;
     int direction;
     unsigned routeEndpoints;
     StreamFormat format; //!< requested stream format
@@ -200,7 +200,7 @@ SoapySDR::Stream *SoapyIrisLocal::setupStream(
     unsigned long long localMac64(0);
     int localScopeId(-1);
     {
-        SoapyRPCSocket junkSock; junkSock.connect(_remoteURL);
+        sklk_SoapyRPCSocket junkSock; junkSock.connect(_remoteURL);
         SoapyURL url(junkSock.getsockname());
         SockAddrData addr; auto err = url.toSockAddr(addr);
         sockAddrInterfaceLookup(addr.addr(), ethName, localMac64, localScopeId);

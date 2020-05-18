@@ -22,19 +22,19 @@ public:
  * A simple socket wrapper with a TCP-like socket API.
  * The implementation may be swapped out in the future.
  */
-class SOAPY_REMOTE_API SoapyRPCSocket
+class SOAPY_REMOTE_API sklk_SoapyRPCSocket
 {
 public:
-    SoapyRPCSocket(void);
+    sklk_SoapyRPCSocket(void);
 
     /*!
      * Make the underlying socket (but does not bind or connect).
      * This function is called automatically by bind and connect,
      * however it can be used to test if a protocol is possible.
      */
-    SoapyRPCSocket(const std::string &url);
+    sklk_SoapyRPCSocket(const std::string &url);
 
-    ~SoapyRPCSocket(void);
+    ~sklk_SoapyRPCSocket(void);
 
     /*!
      * Is the socket null?
@@ -67,7 +67,7 @@ public:
      * Socket will be null on failure.
      * Caller owns the client socket.
      */
-    SoapyRPCSocket *accept(void);
+    sklk_SoapyRPCSocket *accept(void);
 
     /*!
      * Client connect.
